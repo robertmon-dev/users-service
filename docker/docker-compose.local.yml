@@ -18,8 +18,19 @@ services:
       POSTGRES_USER: users_service
       POSTGRES_PASSWORD: users_service_password
       POSTGRES_DB: users_db
+    command:
+      - "postgres"
+      - "-c"
+      - "ssl=on"
+      - "-c"
+      - "ssl_cert_file=/certs/server.crt"
+      - "-c"
+      - "ssl_key_file=/certs/server.key"
+      - "-c"
+      - "ssl_ca_file=/certs/ca.crt"
     volumes:
       - postgres_data_local:/var/lib/postgresql/data
+      - ./certs:/certs:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U users_service"]
       interval: 5s

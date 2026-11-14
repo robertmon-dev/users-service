@@ -60,6 +60,25 @@ generate-keys: ## Generate a local Ed25519 JWT keypair (private_key.pem / public
 	@openssl pkey -in private_key.pem -pubout -out public_key.pem
 	@echo "=> Keys written to private_key.pem and public_key.pem."
 
+.PHONY: generate-db-certs
+generate-db-certs: ## Generate a local CA/server/client cert chain for Postgres TLS (docker/certs)
+	@echo "=> Generating local Postgres TLS certificates..."
+	@mkdir -p docker/certs
+	@openssl genrsa -out docker/certs/ca.key 2048
+	@openssl req -x509 -new -nodes -key docker/certs/ca.key -sha256 -days 3650 -subj "/CN=users-service-local-ca" -out docker/certs/ca.crt
+	@openssl genrsa -out docker/certs/server.key 2048
+	@openssl req -new -key docker/certs/server.key -subj "/CN=localhost" -out docker/certs/server.csr
+	@openssl x509 -req -in docker/certs/server.csr -CA docker/certs/ca.crt -CAkey docker/certs/ca.key -CAcreateserial \
+		-out docker/certs/server.crt -days 3650 -sha256 \
+		-extfile <(printf "subjectAltName=DNS:localhost,DNS:postgres,IP:127.0.0.1")
+	@openssl genrsa -out docker/certs/client.key 2048
+	@openssl req -new -key docker/certs/client.key -subj "/CN=users_service" -out docker/certs/client.csr
+	@openssl x509 -req -in docker/certs/client.csr -CA docker/certs/ca.crt -CAkey docker/certs/ca.key -CAcreateserial \
+		-out docker/certs/client.crt -days 3650 -sha256
+	@chmod 600 docker/certs/server.key docker/certs/client.key docker/certs/ca.key
+	@rm -f docker/certs/server.csr docker/certs/client.csr
+	@echo "=> Certificates written to docker/certs/."
+
 .PHONY: clean
 clean: ## Remove build artifacts and generated binaries
 	@echo "=> Cleaning build artifacts..."

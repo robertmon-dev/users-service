@@ -28,6 +28,7 @@ e2e-tests.xml
 
 private_key.pem
 public_key.pem
+docker/certs/
 
 .vscode/
 .idea/

@@ -18,8 +18,19 @@ services:
       POSTGRES_USER: ${DB_USER:-users_service}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-users_service_password}
       POSTGRES_DB: ${DB_NAME:-users_db}
+    command:
+      - "postgres"
+      - "-c"
+      - "ssl=on"
+      - "-c"
+      - "ssl_cert_file=/certs/server.crt"
+      - "-c"
+      - "ssl_key_file=/certs/server.key"
+      - "-c"
+      - "ssl_ca_file=/certs/ca.crt"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./certs:/certs:ro
     networks:
       - users-service-network
 
