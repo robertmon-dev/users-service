@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: users_service_db_local
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: users_service
+      POSTGRES_PASSWORD: users_service_password
+      POSTGRES_DB: users_db
+    volumes:
+      - postgres_data_local:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U users_service"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:alpine
+    container_name: users_service_redis_local
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data_local:/data
+
+  kafka:
+    image: bitnami/kafka:3.7
+    container_name: users_service_kafka_local
+    ports:
+      - "9093:9093"
+    environment:
+      KAFKA_CFG_NODE_ID: 0
+      KAFKA_CFG_PROCESS_ROLES: controller,broker
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka:9094
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9094,EXTERNAL://:9093
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9093
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+    volumes:
+      - kafka_data_local:/bitnami/kafka
+
+volumes:
+  postgres_data_local:
+  redis_data_local:
+  kafka_data_local:
