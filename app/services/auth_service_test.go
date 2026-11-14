@@ -6,6 +6,7 @@ import (
 	"errors"
 	"testing"
 	"time"
+
 	"users-service/app/models/ent"
 	"users-service/app/models/requests"
 	"users-service/tests/mocks"
@@ -29,6 +30,8 @@ func newTestAuthService(t *testing.T) (*AuthService, *mocks.MockUsersRepository,
 		zerolog.Nop(),
 		pubKey,
 		privKey,
+		[]byte("test-pepper"),
+		15*time.Minute,
 		1,
 	)
 	require.NotNil(t, authService)
