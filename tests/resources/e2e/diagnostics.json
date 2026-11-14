@@ -1,0 +1,50 @@
+{
+  "test_cases": [
+    {
+      "name": "HealthProbe returns healthy status",
+      "description": "GET /diagnostics/health should report the service as healthy",
+      "steps": [
+        {
+          "type": "httpRequest",
+          "description": "Call the health probe endpoint",
+          "params": {
+            "method": "GET",
+            "path": "/api/v1/diagnostics/health"
+          },
+          "expected": {
+            "statusCode": 200,
+            "body": {
+              "status": "success",
+              "data": {
+                "message": "Service is healthy"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "ReadinessProbe returns ready status",
+      "description": "GET /diagnostics/readiness should report the service as ready once Postgres, Redis, and Kafka are reachable",
+      "steps": [
+        {
+          "type": "httpRequest",
+          "description": "Call the readiness probe endpoint",
+          "params": {
+            "method": "GET",
+            "path": "/api/v1/diagnostics/readiness"
+          },
+          "expected": {
+            "statusCode": 200,
+            "body": {
+              "status": "success",
+              "data": {
+                "message": "Service is ready"
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

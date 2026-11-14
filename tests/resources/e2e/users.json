@@ -1,0 +1,233 @@
+{
+  "test_cases": [
+    {
+      "name": "Authenticated user can update details, settings, and remove the account",
+      "description": "Register, activate, log in, then exercise /users/details, /users/settings, and /users/remove with the resulting bearer token. /users/update (phone) is intentionally not exercised here -- see the dedicated known-gap test case below.",
+      "steps": [
+        {
+          "type": "httpRequest",
+          "description": "Register a new user",
+          "params": {
+            "method": "POST",
+            "path": "/api/v1/auth/register",
+            "body": {
+              "name": "Alice Example",
+              "mail": "alice.example@example.com",
+              "password": "StrongPassword123!",
+              "device_token": "alice-device-1",
+              "ip_address": "127.0.0.1",
+              "user_agent": "e2e-test-agent",
+              "os_name": "linux",
+              "os_version": "1.0",
+              "browser_name": "e2e-browser",
+              "browser_version": "1.0"
+            }
+          },
+          "expected": {
+            "statusCode": 200
+          }
+        },
+        {
+          "type": "executeFunction",
+          "description": "Fetch the activation code for the new user",
+          "params": {
+            "function_name": "tests.GetActivationCodeByMail",
+            "args": [
+              "alice.example@example.com"
+            ]
+          },
+          "store_result_as": "activationCode"
+        },
+        {
+          "type": "httpRequest",
+          "description": "Activate the account",
+          "params": {
+            "method": "PATCH",
+            "path": "/api/v1/auth/activation/account",
+            "body": {
+              "code": "{{activationCode}}",
+              "device_token": "alice-device-1",
+              "ip_address": "127.0.0.1",
+              "user_agent": "e2e-test-agent",
+              "os_name": "linux",
+              "os_version": "1.0",
+              "browser_name": "e2e-browser",
+              "browser_version": "1.0"
+            }
+          },
+          "expected": {
+            "statusCode": 200
+          }
+        },
+        {
+          "type": "httpRequest",
+          "description": "Log in to obtain a bearer token",
+          "params": {
+            "method": "POST",
+            "path": "/api/v1/auth/login",
+            "body": {
+              "mail": "alice.example@example.com",
+              "password": "StrongPassword123!",
+              "device_token": "alice-device-1",
+              "ip_address": "127.0.0.1",
+              "user_agent": "e2e-test-agent",
+              "os_name": "linux",
+              "os_version": "1.0",
+              "browser_name": "e2e-browser",
+              "browser_version": "1.0"
+            }
+          },
+          "expected": {
+            "statusCode": 200
+          },
+          "store_result_as": "loginResult"
+        },
+        {
+          "type": "executeFunction",
+          "description": "Fetch the device ID created during registration",
+          "params": {
+            "function_name": "tests.GetDeviceIDByToken",
+            "args": [
+              "alice-device-1"
+            ]
+          },
+          "store_result_as": "deviceID"
+        },
+        {
+          "type": "httpRequest",
+          "description": "Update the user's first and last name",
+          "params": {
+            "method": "PATCH",
+            "path": "/api/v1/users/details/update",
+            "headers": {
+              "Authorization": "Bearer {{loginResult.data.token}}"
+            },
+            "body": {
+              "first_name": "Alice",
+              "last_name": "Example",
+              "device_token": "alice-device-1",
+              "ip_address": "127.0.0.1",
+              "user_agent": "e2e-test-agent",
+              "os_name": "linux",
+              "os_version": "1.0",
+              "browser_name": "e2e-browser",
+              "browser_version": "1.0"
+            }
+          },
+          "expected": {
+            "statusCode": 200
+          }
+        },
+        {
+          "type": "httpRequest",
+          "description": "Update the user's settings",
+          "params": {
+            "method": "PATCH",
+            "path": "/api/v1/users/settings/update",
+            "headers": {
+              "Authorization": "Bearer {{loginResult.data.token}}"
+            },
+            "body": {
+              "two_factor": false,
+              "night_mode": true,
+              "second_factor_target_id": "{{deviceID}}",
+              "notifications_target_device_ids": [],
+              "device_token": "alice-device-1",
+              "ip_address": "127.0.0.1",
+              "user_agent": "e2e-test-agent",
+              "os_name": "linux",
+              "os_version": "1.0",
+              "browser_name": "e2e-browser",
+              "browser_version": "1.0"
+            }
+          },
+          "expected": {
+            "statusCode": 200
+          }
+        },
+        {
+          "type": "httpRequest",
+          "description": "Remove the user's account",
+          "params": {
+            "method": "DELETE",
+            "path": "/api/v1/users/remove",
+            "headers": {
+              "Authorization": "Bearer {{loginResult.data.token}}"
+            },
+            "body": {
+              "device_token": "alice-device-1",
+              "ip_address": "127.0.0.1",
+              "user_agent": "e2e-test-agent",
+              "os_name": "linux",
+              "os_version": "1.0",
+              "browser_name": "e2e-browser",
+              "browser_version": "1.0"
+            }
+          },
+          "expected": {
+            "statusCode": 200
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users endpoint rejects requests without a bearer token",
+      "description": "Regression test: /users/update must require authentication",
+      "steps": [
+        {
+          "type": "httpRequest",
+          "description": "Attempt to update a user without an Authorization header",
+          "params": {
+            "method": "PATCH",
+            "path": "/api/v1/users/update",
+            "body": {
+              "phone": "+15551234567",
+              "mail": "someone@example.com",
+              "device_token": "device-1",
+              "ip_address": "127.0.0.1",
+              "user_agent": "e2e-test-agent",
+              "os_name": "linux",
+              "os_version": "1.0",
+              "browser_name": "e2e-browser",
+              "browser_version": "1.0"
+            }
+          },
+          "expected": {
+            "statusCode": 401
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users endpoint rejects requests with an invalid bearer token",
+      "description": "Regression test: /users/update must reject a malformed/garbage token",
+      "steps": [
+        {
+          "type": "httpRequest",
+          "description": "Attempt to update a user with a garbage Authorization header",
+          "params": {
+            "method": "PATCH",
+            "path": "/api/v1/users/update",
+            "headers": {
+              "Authorization": "Bearer this.is.not.a.valid.jwt"
+            },
+            "body": {
+              "phone": "+15551234567",
+              "mail": "someone@example.com",
+              "device_token": "device-1",
+              "ip_address": "127.0.0.1",
+              "user_agent": "e2e-test-agent",
+              "os_name": "linux",
+              "os_version": "1.0",
+              "browser_name": "e2e-browser",
+              "browser_version": "1.0"
+            }
+          },
+          "expected": {
+            "statusCode": 401
+          }
+        }
+      ]
+    }
+  ]
+}
