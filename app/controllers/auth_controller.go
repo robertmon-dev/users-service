@@ -10,20 +10,16 @@ import (
 	"users-service/app/utils"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog"
 )
 
 type AuthController struct {
 	AuthService  services.AuthServiceInterface
 	UsersService services.UsersServiceInterface
-	Upgrader     websocket.Upgrader
 	Logger       zerolog.Logger
 }
 
 type AuthControllerInterface interface {
-	InitWebSocketHelper(ctx *gin.Context) (*requests.WebSocketHelper, error)
-
 	Register(ctx *gin.Context)
 	RegisterExternally(ctx *gin.Context)
 	Login(ctx *gin.Context)
@@ -57,14 +53,7 @@ func NewAuthController(
 	return &AuthController{
 		AuthService:  authService,
 		UsersService: usersService,
-		Upgrader: websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool {
-				return true
-			},
-			ReadBufferSize:  1024,
-			WriteBufferSize: 1024,
-		},
-		Logger: logger,
+		Logger:       logger,
 	}
 }
 
@@ -90,25 +79,6 @@ func (c *AuthController) RespondSuccess(ctx *gin.Context, statusCode int, data i
 		Data:      data,
 		RequestID: requestID,
 	})
-}
-
-func (c *AuthController) InitWebSocketHelper(ctx *gin.Context) (*requests.WebSocketHelper, error) {
-	c.Upgrader = websocket.Upgrader{
-		ReadBufferSize:  1024,
-		WriteBufferSize: 1024,
-		CheckOrigin: func(r *http.Request) bool {
-			return true
-		},
-	}
-
-	conn, err := c.Upgrader.Upgrade(ctx.Writer, ctx.Request, nil)
-	if err != nil {
-		c.Logger.Error().Err(err).Msg("Failed to upgrade connection to WebSocket")
-		return nil, err
-	}
-
-	c.Logger.Info().Str("remote_addr", conn.RemoteAddr().String()).Msg("New WebSocket connection established")
-	return &requests.WebSocketHelper{Conn: conn, Logger: c.Logger}, nil
 }
 
 // Register godoc
