@@ -120,7 +120,14 @@ func NewApp(settings *Settings) *Application {
 
 	eventNotifier := infrastructure.NewEventNotifier(kafkaProducer, logger, settings.KafkaNotifierTopic, time.Second*15)
 
-	authService := services.NewAuthService(usersRepo, eventNotifier, logger, privateKey, publicKey, 10)
+	tokenDuration, err := time.ParseDuration(settings.TokenDuration)
+	if err != nil {
+		logger.Fatal().Err(err).Str("token_duration", settings.TokenDuration).Msg("failed to parse token duration")
+	}
+
+	bearerService := services.NewBearerService(logger, publicKey, privateKey, tokenDuration)
+	passwordService := services.NewPasswordService(logger, []byte(settings.HashingPepper), 10)
+	authService := services.NewAuthService(usersRepo, eventNotifier, logger, bearerService, passwordService)
 	diagnosticsService := services.NewDiagnosticsService(usersRepo, cacheStore, eventNotifier, consumerManager, logger)
 	usersService := services.NewUsersService(usersRepo, eventNotifier, logger)
 
