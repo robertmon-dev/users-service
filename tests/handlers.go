@@ -265,9 +265,10 @@ func handleContainsAssertion(t *testing.T, actual, expected interface{}, msg str
 
 func handleHTTPRequest(t *testing.T, router *gin.Engine, step Step, dependencies map[string]interface{}) {
 	var params struct {
-		Method string          `json:"method"`
-		Path   string          `json:"path"`
-		Body   json.RawMessage `json:"body"`
+		Method  string            `json:"method"`
+		Path    string            `json:"path"`
+		Body    json.RawMessage   `json:"body"`
+		Headers map[string]string `json:"headers"`
 	}
 
 	resolvedParams := resolveDependencies(t, step.Params, dependencies)
@@ -277,6 +278,9 @@ func handleHTTPRequest(t *testing.T, router *gin.Engine, step Step, dependencies
 	req, err := http.NewRequest(params.Method, params.Path, bytes.NewBuffer(params.Body))
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "application/json")
+	for key, value := range params.Headers {
+		req.Header.Set(key, value)
+	}
 
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -598,6 +602,12 @@ func resolveDependencies(t *testing.T, rawData json.RawMessage, dependencies map
 		marshaled, err := json.Marshal(currentVal)
 		require.NoError(t, err)
 		return string(marshaled)
+	})
+
+	embeddedRe := regexp.MustCompile(`{{\s*([a-zA-Z0-9_.-]+)\s*}}`)
+	resolvedFinalJsonStr = embeddedRe.ReplaceAllStringFunc(resolvedFinalJsonStr, func(match string) string {
+		currentVal := resolveSingleDependencyGoValue(t, match, dependencies)
+		return fmt.Sprintf("%v", currentVal)
 	})
 
 	t.Logf("Final resolved JSON: %s", resolvedFinalJsonStr)

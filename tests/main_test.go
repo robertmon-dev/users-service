@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"crypto/ed25519"
+	"errors"
 	"flag"
 	"log"
 	"os"
@@ -11,8 +12,11 @@ import (
 
 	"users-service/app/config"
 	"users-service/app/models/ent"
+	"users-service/app/models/ent/user"
+	"users-service/app/models/ent/userdevice"
 	"users-service/tests/registry"
 
+	entsql "entgo.io/ent/dialect/sql"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/docker/docker/client"
 	_ "github.com/lib/pq"
@@ -103,10 +107,11 @@ func setupIntegrationEnvironment() {
 		log.Fatalf("failed to get postgres connection string: %s", err)
 	}
 
-	dbClient, err := ent.Open("postgres", pgConnStr)
+	dbDriver, err := entsql.Open("postgres", pgConnStr)
 	if err != nil {
 		log.Fatalf("failed to connect to test postgres: %s", err)
 	}
+	dbClient := ent.NewClient(ent.Driver(dbDriver))
 
 	if err := dbClient.Schema.Create(ctx); err != nil {
 		log.Fatalf("failed to create schema: %s", err)
@@ -153,7 +158,51 @@ func setupIntegrationEnvironment() {
 		log.Fatalf("failed to generate jwt keys: %s", err)
 	}
 
-	TestApp = registry.NewTestAppContainer(testSettings, dbClient, redisClient, kafkaProducer, logger, pubKey, privKey)
+	TestApp = registry.NewTestAppContainer(testSettings, dbClient, dbDriver, redisClient, kafkaProducer, logger, pubKey, privKey)
+	registerTestHelperFunctions()
 
 	log.Println("--- Test environment successfully initialized ---")
+}
+
+func registerTestHelperFunctions() {
+	(*registry.FunctionRegistry)["tests.GetActivationCodeByMail"] = func(mail string) (string, error) {
+		foundUser, err := TestDB.User.
+			Query().
+			Where(user.MailEQ(mail)).
+			WithActivationCode().
+			Only(context.Background())
+		if err != nil {
+			return "", err
+		}
+		if foundUser.Edges.ActivationCode == nil {
+			return "", errors.New("user has no activation code")
+		}
+		return foundUser.Edges.ActivationCode.Code, nil
+	}
+
+	(*registry.FunctionRegistry)["tests.GetResetCodeByMail"] = func(mail string) (string, error) {
+		foundUser, err := TestDB.User.
+			Query().
+			Where(user.MailEQ(mail)).
+			WithResetCode().
+			Only(context.Background())
+		if err != nil {
+			return "", err
+		}
+		if foundUser.Edges.ResetCode == nil {
+			return "", errors.New("user has no reset code")
+		}
+		return foundUser.Edges.ResetCode.Code, nil
+	}
+
+	(*registry.FunctionRegistry)["tests.GetDeviceIDByToken"] = func(deviceToken string) (int, error) {
+		device, err := TestDB.UserDevice.
+			Query().
+			Where(userdevice.Token(deviceToken)).
+			Only(context.Background())
+		if err != nil {
+			return 0, err
+		}
+		return device.ID, nil
+	}
 }
