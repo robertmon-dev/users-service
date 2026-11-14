@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"crypto"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
@@ -20,7 +19,6 @@ import (
 	"users-service/app/repositories"
 	"users-service/app/utils"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/rs/zerolog"
 	"golang.org/x/crypto/argon2"
 )
@@ -29,11 +27,8 @@ type AuthService struct {
 	UsersRepository repositories.UsersRepositoryInterface
 	EventNotifier   infrastructure.EventNotifierInterface
 	Logger          zerolog.Logger
-	PublicKey       crypto.PublicKey
-	PrivateKey      crypto.PrivateKey
-	HashingPepper   []byte
-	TokenDuration   time.Duration
-	HashPool        chan func()
+	BearerService   BearerServiceInterface
+	PasswordService PasswordServiceInterface
 }
 
 type AuthServiceInterface interface {
@@ -65,139 +60,34 @@ func NewAuthService(
 	usersRepository repositories.UsersRepositoryInterface,
 	eventNotifier infrastructure.EventNotifierInterface,
 	logger zerolog.Logger,
-	publicKey crypto.PublicKey,
-	privateKey crypto.PrivateKey,
-	poolSize int,
+	bearerService BearerServiceInterface,
+	passwordService PasswordServiceInterface,
 ) *AuthService {
-	authService := &AuthService{
+	return &AuthService{
 		UsersRepository: usersRepository,
 		EventNotifier:   eventNotifier,
 		Logger:          logger,
-		PublicKey:       publicKey,
-		PrivateKey:      privateKey,
-		HashPool:        make(chan func(), poolSize),
+		BearerService:   bearerService,
+		PasswordService: passwordService,
 	}
-
-	for i := 0; i < poolSize; i++ {
-		go func() {
-			for task := range authService.HashPool {
-				task()
-			}
-		}()
-	}
-
-	return authService
 }
 
 func (s *AuthService) GenerateJWT(ctx context.Context, userID int, deviceID int, userRoles []models.UserRoleInfo) (string, error) {
-	s.Logger.Info().Int("user_id", userID).Int("device_id", deviceID).Msg("Generating JWT for device")
-
-	claims := models.Claims{
-		UserID:    userID,
-		DeviceID:  deviceID,
-		UserRoles: userRoles,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().UTC().Add(s.TokenDuration)),
-			IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
-		},
-	}
-
-	token := jwt.NewWithClaims(&jwt.SigningMethodEd25519{}, claims)
-	resultChan := make(chan models.JWTResult, 1)
-
-	go func() {
-		defer close(resultChan)
-		signedToken, err := token.SignedString(s.PrivateKey)
-		if err != nil {
-			s.Logger.Error().Int("user_id", userID).Err(err).Msg("Failed to sign JWT")
-			resultChan <- models.JWTResult{Token: "", Err: err}
-			return
-		}
-		s.Logger.Info().Int("user_id", userID).Msg("JWT successfully generated")
-		resultChan <- models.JWTResult{Token: signedToken, Err: nil}
-	}()
-
-	select {
-	case result := <-resultChan:
-		if result.Err != nil {
-			return "", result.Err
-		}
-		return result.Token, nil
-	case <-ctx.Done():
-		s.Logger.Warn().Int("user_id", userID).Err(ctx.Err()).Msg("JWT generation timed out")
-		return "", errors.New("JWT generation timed out")
-	}
+	return s.BearerService.GenerateJWT(ctx, userID, deviceID, userRoles)
 }
 
 func (s *AuthService) ValidateJWT(ctx context.Context, tokenString string) (*models.Claims, error) {
-	s.Logger.Info().Msg("Validating JWT")
-
-	resultChan := make(chan models.JWTValidationResult, 1)
-
-	go func() {
-		defer close(resultChan)
-		token, err := jwt.ParseWithClaims(tokenString, &models.Claims{}, func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodEd25519); !ok {
-				s.Logger.Warn().Str("alg", fmt.Sprintf("%v", token.Header["alg"])).Msg("Unexpected signing method")
-				return nil, errors.New("unexpected signing method")
-			}
-			return s.PublicKey, nil
-		})
-		if err != nil {
-			s.Logger.Error().Err(err).Msg("JWT parsing failed")
-			resultChan <- models.JWTValidationResult{Claims: nil, Err: err}
-			return
-		}
-
-		claims, ok := token.Claims.(*models.Claims)
-		if !ok || !token.Valid {
-			s.Logger.Warn().Msg("Invalid token or claims mismatch")
-			resultChan <- models.JWTValidationResult{Claims: nil, Err: errors.New("invalid token or claims")}
-			return
-		}
-
-		if claims.DeviceID == 0 {
-			s.Logger.Warn().Int("user_id", claims.UserID).Msg("Token is missing device ID")
-			resultChan <- models.JWTValidationResult{Claims: nil, Err: errors.New("token is not device-specific")}
-			return
-		}
-
-		if claims.ExpiresAt != nil && claims.ExpiresAt.Unix() <= time.Now().UTC().Unix() {
-			s.Logger.Warn().
-				Int("user_id", claims.UserID).
-				Int("device_id", claims.DeviceID).
-				Time("exp", claims.ExpiresAt.Time).
-				Msg("Token expired")
-			resultChan <- models.JWTValidationResult{Claims: nil, Err: errors.New("token has expired")}
-			return
-		}
-
-		s.Logger.Info().
-			Int("user_id", claims.UserID).
-			Int("device_id", claims.DeviceID).
-			Interface("userRoles", claims.UserRoles).
-			Msg("Token validated successfully")
-		resultChan <- models.JWTValidationResult{Claims: claims, Err: nil}
-	}()
-
-	select {
-	case result := <-resultChan:
-		if result.Err != nil {
-			return nil, result.Err
-		}
-		return result.Claims, nil
-	case <-ctx.Done():
-		s.Logger.Warn().Err(ctx.Err()).Msg("JWT validation timed out")
-		return nil, errors.New("JWT validation timed out")
-	}
+	return s.BearerService.ValidateJWT(ctx, tokenString)
 }
 
 func (s *AuthService) Register(
 	ctx context.Context,
 	req *requests.Register,
 ) (*ent.User, error) {
-	if user, _ := s.UsersRepository.GetUserByMail(ctx, req.Mail); user != nil {
+	if user, err := s.UsersRepository.GetUserByMail(ctx, req.Mail); err == nil && user != nil {
 		return nil, errors.New("this mail is already registered")
+	} else if err != nil && !ent.IsNotFound(err) {
+		return nil, errors.New("failed to check for existing user")
 	}
 
 	hashedPassword, err := s.HashPassword(req.Password)
@@ -408,7 +298,11 @@ func (s *AuthService) VerifySecondFactor(ctx context.Context, req *requests.Code
 	}
 
 	if time.Now().UTC().After(foundUser.Edges.SecondFactorCode.ExpiresAt) {
-		go s.UsersRepository.RemoveSecondFactorCode(context.Background(), foundUser)
+		go func() {
+			if _, err := s.UsersRepository.RemoveSecondFactorCode(context.Background(), foundUser); err != nil {
+				s.Logger.Error().Err(err).Int("user_id", foundUser.ID).Msg("Failed to remove expired second factor code")
+			}
+		}()
 		return nil, "", errors.New("second factor token has expired")
 	}
 
@@ -427,6 +321,7 @@ func (s *AuthService) VerifySecondFactor(ctx context.Context, req *requests.Code
 	user, err := s.UsersRepository.RemoveSecondFactorCode(ctx, foundUser)
 	if err != nil {
 		s.Logger.Error().Err(err).Int("user_id", foundUser.ID).Msg("Failed to remove second factor code after use")
+		user = foundUser
 	}
 
 	if err := s.EventNotifier.CreateLoginEvent(foundUser.Edges.UserSettings, "second-factor"); err != nil {
