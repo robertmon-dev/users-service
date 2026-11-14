@@ -50,17 +50,11 @@ func NewTestAppContainer(
 		log.Fatalf("failed to parse token duration: %v", err)
 	}
 
+	bearerService := services.NewBearerService(logger, string(pubPEM), string(privPEM), tokenDuration)
+	passwordService := services.NewPasswordService(logger, []byte(testSettings.HashingPepper), 10)
+
 	serviceContainer := &ServiceContainer{
-		AuthService: services.NewAuthService(
-			repo,
-			notifier,
-			logger,
-			string(pubPEM),
-			string(privPEM),
-			[]byte(testSettings.HashingPepper),
-			tokenDuration,
-			10,
-		),
+		AuthService:  services.NewAuthService(repo, notifier, logger, bearerService, passwordService),
 		UsersService: services.NewUsersService(repo, notifier, logger),
 	}
 
