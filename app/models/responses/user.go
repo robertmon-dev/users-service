@@ -2,6 +2,7 @@ package responses
 
 import (
 	"time"
+
 	"users-service/app/models/ent"
 )
 
@@ -58,7 +59,7 @@ type UserPrivate struct {
 	LastName  string `json:"last_name,omitempty"`
 	Name      string `json:"name,omitempty"`
 
-	Locations           []*ent.Location          `json:locations,omitempty`
+	Locations           []*ent.Location          `json:"locations,omitempty"`
 	EntrepreneurDetails *ent.EntrepreneurDetails `json:"entrepreneur_details,omitempty"`
 	UserSettings        *ent.UserSettings        `json:"settings,omitempty"`
 	UserPublic
