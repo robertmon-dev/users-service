@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
 	"users-service/app/models/ent"
 
 	"github.com/stretchr/testify/require"
@@ -140,30 +141,4 @@ func toCamelCase(s string) string {
 		parts[i] = strings.Title(parts[i])
 	}
 	return strings.Join(parts, "")
-}
-
-func cleanupDatabase(t *testing.T, client *ent.Client) {
-	ctx := context.Background()
-	_, err := client.ActivationCode.Delete().Exec(ctx)
-	require.NoError(t, err)
-	_, err = client.SecondFactorCode.Delete().Exec(ctx)
-	require.NoError(t, err)
-	_, err = client.ResetCode.Delete().Exec(ctx)
-	require.NoError(t, err)
-	_, err = client.VerificationCode.Delete().Exec(ctx)
-	require.NoError(t, err)
-	_, err = client.UserDevice.Delete().Exec(ctx)
-	require.NoError(t, err)
-	_, err = client.UserAction.Delete().Exec(ctx)
-	require.NoError(t, err)
-	_, err = client.UserSettings.Delete().Exec(ctx)
-	require.NoError(t, err)
-	_, err = client.UserDetails.Delete().Exec(ctx)
-	require.NoError(t, err)
-	_, err = client.User.Delete().Exec(ctx)
-	require.NoError(t, err)
-	_, err = client.UserRole.Delete().Exec(ctx)
-	require.NoError(t, err)
-	_, err = client.RolePermission.Delete().Exec(ctx)
-	require.NoError(t, err)
 }
