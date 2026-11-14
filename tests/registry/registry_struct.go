@@ -2,6 +2,7 @@ package registry
 
 import (
 	"reflect"
+
 	"users-service/app/controllers"
 	"users-service/app/middlewares"
 	"users-service/app/models/events"
@@ -63,9 +64,6 @@ type ModelsContainer struct {
 
 	Error   responses.ErrorResponse
 	Success responses.SuccessResponse
-	Message responses.Message
-
-	ProgressReporter responses.ProgressReporter
 
 	PermissionInfo      utilsModels.PermissionInfo
 	UserRoleInfo        utilsModels.UserRoleInfo

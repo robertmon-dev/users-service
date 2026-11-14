@@ -41,21 +41,3 @@ func (r *TestRequestWithValidation) Valid() error {
 	}
 	return nil
 }
-
-type MockWebSocketController struct {
-	MockStandardController
-	mock.Mock
-}
-
-func (m *MockWebSocketController) InitWebSocketHelper(ctx *gin.Context) (*requests.WebSocketHelper, error) {
-	args := m.Called(ctx)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*requests.WebSocketHelper), args.Error(1)
-}
-
-func (m *MockWebSocketController) Log() *zerolog.Logger {
-	args := m.Called()
-	return args.Get(0).(*zerolog.Logger)
-}
