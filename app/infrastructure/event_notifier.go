@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"time"
+
 	"users-service/app/models/ent"
 	"users-service/app/models/events"
 
@@ -46,7 +47,8 @@ func NewEventNotifier(
 	kafkaProducer KafkaProducerInterface,
 	logger zerolog.Logger,
 	topic string,
-	timeout time.Duration) *EventNotifier {
+	timeout time.Duration,
+) *EventNotifier {
 	logger.Debug().Str("topic", topic).Dur("timeout", timeout).Msg("Initializing new EventNotifier")
 	return &EventNotifier{
 		KafkaProducer:    kafkaProducer,
@@ -112,6 +114,11 @@ func (n *EventNotifier) CreateRegistrationEvent(user *ent.User, activationCode *
 		return errors.New("user settings not loaded for user")
 	}
 	n.Logger.Debug().Int("user_id", user.ID).Msg("User settings loaded for registration event")
+
+	if activationCode == nil {
+		n.Logger.Error().Int("user_id", user.ID).Msg("Cannot create registration event: activation code is not loaded.")
+		return errors.New("activation code not loaded for user")
+	}
 
 	event := events.RegistrationEvent{
 		BaseEvent: events.BaseEvent{
@@ -204,6 +211,11 @@ func (n *EventNotifier) CreateVerificationEvent(settings *ent.UserSettings, phon
 		return errors.New("user settings owner not loaded")
 	}
 	n.Logger.Debug().Int("user_id", userID).Msg("User settings owner loaded for verification event")
+
+	if verificationCode == nil {
+		n.Logger.Error().Int("user_id", userID).Msg("Cannot create verification event: verification code is not loaded.")
+		return errors.New("verification code not loaded for user")
+	}
 
 	event := events.VerificationEvent{
 		BaseEvent: events.BaseEvent{
@@ -355,7 +367,6 @@ func (n *EventNotifier) Ping() error {
 	timeoutMs := int(n.KafkaPingTimeout / time.Millisecond)
 
 	_, err := n.KafkaProducer.GetMetadata(nil, true, timeoutMs)
-
 	if err != nil {
 		if kafkaErr, ok := err.(kafka.Error); ok {
 			if kafkaErr.IsTimeout() {
