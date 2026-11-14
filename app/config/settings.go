@@ -33,6 +33,8 @@ type Settings struct {
 	JwtPublicKeyPath    string `mapstructure:"JWT_PUBLIC_KEY_PATH"`
 	JwtPrivateKeyBase64 string `mapstructure:"JWT_PRIVATE_KEY_BASE64"`
 	JwtPublicKeyBase64  string `mapstructure:"JWT_PUBLIC_KEY_BASE64"`
+	HashingPepper       string `mapstructure:"HASHING_PEPPER"`
+	TokenDuration       string `mapstructure:"TOKEN_DURATION"`
 
 	DBUser        string `mapstructure:"DB_USER"`
 	DBPassword    string `mapstructure:"DB_PASSWORD"`
@@ -138,6 +140,8 @@ func GetSettings() *Settings {
 		v.SetDefault("TEST_MODE", "")
 		v.SetDefault("JWT_PRIVATE_KEY_PATH", "")
 		v.SetDefault("JWT_PUBLIC_KEY_PATH", "")
+		v.SetDefault("HASHING_PEPPER", "")
+		v.SetDefault("TOKEN_DURATION", "15m")
 
 		if err := v.ReadInConfig(); err != nil {
 			if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
