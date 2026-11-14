@@ -52,6 +52,13 @@ install: ## Download Go modules and dev tool dependencies
 	@$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	@echo "=> Installation complete."
 
+.PHONY: generate-keys
+generate-keys: ## Generate a local Ed25519 JWT keypair (private_key.pem / public_key.pem)
+	@echo "=> Generating Ed25519 JWT signing keys..."
+	@openssl genpkey -algorithm ED25519 -out private_key.pem
+	@openssl pkey -in private_key.pem -pubout -out public_key.pem
+	@echo "=> Keys written to private_key.pem and public_key.pem."
+
 .PHONY: clean
 clean: ## Remove build artifacts and generated binaries
 	@echo "=> Cleaning build artifacts..."
