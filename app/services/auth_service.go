@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"crypto/hmac"
-	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
@@ -140,42 +139,14 @@ func (s *AuthService) ActivateAccount(
 }
 
 func (s *AuthService) HashPassword(password string) (string, error) {
-	resultChan := make(chan struct {
-		Hash string
-		Err  error
-	}, 1)
-
-	s.HashPool <- func() {
-		salt := make([]byte, 16)
-		if _, err := rand.Read(salt); err != nil {
-			s.Logger.Error().Err(err).Msg("Failed to generate salt for password hashing")
-			resultChan <- struct {
-				Hash string
-				Err  error
-			}{"", err}
-			return
-		}
-
-		h := hmac.New(sha256.New, s.HashingPepper)
-		h.Write([]byte(password))
-		hmacValue := h.Sum(nil)
-
-		hashed := argon2.IDKey(hmacValue, salt, 3, 128*1024, 4, 32)
-		hashedStr := fmt.Sprintf("$argon2id$v=19$m=131072,t=3,p=4$%s$%s",
-			base64.RawStdEncoding.EncodeToString(salt),
-			base64.RawStdEncoding.EncodeToString(hashed))
-
-		resultChan <- struct {
-			Hash string
-			Err  error
-		}{hashedStr, nil}
-	}
-
-	result := <-resultChan
-	return result.Hash, result.Err
+	return s.PasswordService.HashPassword(password)
 }
 
 func (s *AuthService) CompareHashes(storedHash, password string) error {
+	return s.PasswordService.CompareHashes(storedHash, password)
+}
+
+func (s *AuthService) unusedCompareHashes(storedHash, password string) error {
 	parts := strings.Split(storedHash, "$")
 	if len(parts) != 6 {
 		return errors.New("invalid stored hash format")
