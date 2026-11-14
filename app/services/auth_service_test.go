@@ -24,15 +24,15 @@ func newTestAuthService(t *testing.T) (*AuthService, *mocks.MockUsersRepository,
 	pubKey, privKey, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
 
+	bearerService := NewBearerService(zerolog.Nop(), pubKey, privKey, 15*time.Minute)
+	passwordService := NewPasswordService(zerolog.Nop(), []byte("test-pepper"), 1)
+
 	authService := NewAuthService(
 		mockRepo,
 		mockNotifier,
 		zerolog.Nop(),
-		pubKey,
-		privKey,
-		[]byte("test-pepper"),
-		15*time.Minute,
-		1,
+		bearerService,
+		passwordService,
 	)
 	require.NotNil(t, authService)
 
@@ -109,7 +109,7 @@ func TestAuthService_Register(t *testing.T) {
 
 func TestAuthService_Login(t *testing.T) {
 	authService, mockRepo, mockNotifier := newTestAuthService(t)
-	authService.HashingPepper = []byte("test-pepper-for-login")
+	authService.PasswordService.(*PasswordService).HashingPepper = []byte("test-pepper-for-login")
 
 	password := "password123"
 	hashedPassword, err := authService.HashPassword(password)
@@ -456,7 +456,7 @@ func TestAuthService_RequestPasswordReset(t *testing.T) {
 
 func TestAuthService_ConfirmPasswordReset(t *testing.T) {
 	authService, mockRepo, mockNotifier := newTestAuthService(t)
-	authService.HashingPepper = []byte("test-pepper")
+	authService.PasswordService.(*PasswordService).HashingPepper = []byte("test-pepper")
 
 	req := &requests.ConfirmPasswordReset{
 		Code:     "valid-reset-code",
@@ -755,16 +755,17 @@ func TestAuthService_ResendSecondFactorCode(t *testing.T) {
 
 func TestAuthService_ValidateJWT(t *testing.T) {
 	authService, _, _ := newTestAuthService(t)
+	bearerService := authService.BearerService.(*BearerService)
 
-	authService.TokenDuration = 15 * time.Minute
+	bearerService.TokenDuration = 15 * time.Minute
 
 	validToken, err := authService.GenerateJWT(context.Background(), 1, 1, nil)
 	require.NoError(t, err)
 
-	authService.TokenDuration = -15 * time.Minute
+	bearerService.TokenDuration = -15 * time.Minute
 	expiredToken, err := authService.GenerateJWT(context.Background(), 1, 1, nil)
 	require.NoError(t, err)
-	authService.TokenDuration = 15 * time.Minute
+	bearerService.TokenDuration = 15 * time.Minute
 
 	invalidAuthService, _, _ := newTestAuthService(t)
 	invalidToken, err := invalidAuthService.GenerateJWT(context.Background(), 1, 1, nil)
