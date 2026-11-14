@@ -1,3 +1,10 @@
+x-kafka-env: &kafka-env
+  KAFKA_CFG_PROCESS_ROLES: controller,broker
+  KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+  KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+  KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:9094,2@kafka-2:9094,3@kafka-3:9094
+  ALLOW_PLAINTEXT_LISTENER: "yes"
+
 services:
   postgres:
     image: postgres:15-alpine
@@ -24,24 +31,48 @@ services:
     volumes:
       - redis_data_local:/data
 
-  kafka:
+  kafka-1:
     image: bitnami/kafka:3.7
-    container_name: users_service_kafka_local
+    container_name: users_service_kafka_1_local
     ports:
       - "9093:9093"
     environment:
-      KAFKA_CFG_NODE_ID: 0
-      KAFKA_CFG_PROCESS_ROLES: controller,broker
-      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka:9094
-      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      <<: *kafka-env
+      KAFKA_CFG_NODE_ID: 1
       KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9094,EXTERNAL://:9093
-      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9093
-      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
-      ALLOW_PLAINTEXT_LISTENER: "yes"
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka-1:9092,EXTERNAL://localhost:9093
     volumes:
-      - kafka_data_local:/bitnami/kafka
+      - kafka_1_data_local:/bitnami/kafka
+
+  kafka-2:
+    image: bitnami/kafka:3.7
+    container_name: users_service_kafka_2_local
+    ports:
+      - "9095:9095"
+    environment:
+      <<: *kafka-env
+      KAFKA_CFG_NODE_ID: 2
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9094,EXTERNAL://:9095
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka-2:9092,EXTERNAL://localhost:9095
+    volumes:
+      - kafka_2_data_local:/bitnami/kafka
+
+  kafka-3:
+    image: bitnami/kafka:3.7
+    container_name: users_service_kafka_3_local
+    ports:
+      - "9097:9097"
+    environment:
+      <<: *kafka-env
+      KAFKA_CFG_NODE_ID: 3
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9094,EXTERNAL://:9097
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka-3:9092,EXTERNAL://localhost:9097
+    volumes:
+      - kafka_3_data_local:/bitnami/kafka
 
 volumes:
   postgres_data_local:
   redis_data_local:
-  kafka_data_local:
+  kafka_1_data_local:
+  kafka_2_data_local:
+  kafka_3_data_local:
