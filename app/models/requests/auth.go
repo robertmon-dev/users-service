@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"sync"
+
 	"users-service/app/utils"
 
 	"github.com/go-playground/validator/v10"
@@ -18,63 +19,66 @@ var (
 func init() {
 	once.Do(func() {
 		validate = validator.New()
-		validate.RegisterValidation("custom_email", func(fl validator.FieldLevel) bool {
-			email := fl.Field().String()
-			if email == "" {
-				return true
+
+		registrations := map[string]validator.Func{
+			"custom_email": func(fl validator.FieldLevel) bool {
+				email := fl.Field().String()
+				if email == "" {
+					return true
+				}
+				return utils.CheckEmailFormat(email)
+			},
+			"custom_password": func(fl validator.FieldLevel) bool {
+				return utils.CheckPasswordFormat(fl.Field().String())
+			},
+			"custom_token": func(fl validator.FieldLevel) bool {
+				token := fl.Field().String()
+				if token == "" {
+					return true
+				}
+				return utils.CheckTokenFormat(token)
+			},
+			"custom_phone": func(fl validator.FieldLevel) bool {
+				phone := fl.Field().String()
+				if phone == "" {
+					return true
+				}
+				return utils.CheckPhoneFormat(phone)
+			},
+			"custom_nip": func(fl validator.FieldLevel) bool {
+				nip := fl.Field().String()
+				if nip == "" {
+					return true
+				}
+
+				matched, _ := regexp.MatchString(`^\d{10}$`, nip)
+				return matched
+			},
+			"custom_krs": func(fl validator.FieldLevel) bool {
+				krs := fl.Field().String()
+				if krs == "" {
+					return true
+				}
+
+				matched, _ := regexp.MatchString(`^\d{10,14}$`, krs)
+				return matched
+			},
+			"custom_url": func(fl validator.FieldLevel) bool {
+				url := fl.Field().String()
+				if url == "" {
+					return true
+				}
+
+				matched, _ := regexp.MatchString(`^https?://[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`, url)
+				return matched
+			},
+		}
+
+		for tag, fn := range registrations {
+			if err := validate.RegisterValidation(tag, fn); err != nil {
+				panic(fmt.Sprintf("failed to register validator %q: %v", tag, err))
 			}
-			return utils.CheckEmailFormat(email)
-		})
-
-		validate.RegisterValidation("custom_password", func(fl validator.FieldLevel) bool {
-			return utils.CheckPasswordFormat(fl.Field().String())
-		})
-
-		validate.RegisterValidation("custom_token", func(fl validator.FieldLevel) bool {
-			token := fl.Field().String()
-			if token == "" {
-				return true
-			}
-			return utils.CheckTokenFormat(token)
-		})
-
-		validate.RegisterValidation("custom_phone", func(fl validator.FieldLevel) bool {
-			phone := fl.Field().String()
-			if phone == "" {
-				return true
-			}
-			return utils.CheckPhoneFormat(phone)
-		})
-
-		validate.RegisterValidation("custom_nip", func(fl validator.FieldLevel) bool {
-			nip := fl.Field().String()
-			if nip == "" {
-				return true
-			}
-
-			matched, _ := regexp.MatchString(`^\d{10}$`, nip)
-			return matched
-		})
-
-		validate.RegisterValidation("custom_krs", func(fl validator.FieldLevel) bool {
-			krs := fl.Field().String()
-			if krs == "" {
-				return true
-			}
-
-			matched, _ := regexp.MatchString(`^\d{10,14}$`, krs)
-			return matched
-		})
-
-		validate.RegisterValidation("custom_url", func(fl validator.FieldLevel) bool {
-			url := fl.Field().String()
-			if url == "" {
-				return true
-			}
-
-			matched, _ := regexp.MatchString(`^https?://[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`, url)
-			return matched
-		})
+		}
 	})
 }
 
