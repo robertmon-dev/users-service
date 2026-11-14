@@ -2,6 +2,7 @@ package mocks
 
 import (
 	"context"
+
 	"users-service/app/models/ent"
 	"users-service/app/models/requests"
 
@@ -38,11 +39,11 @@ func (m *MockUsersRepository) CreateSecondFactorCode(ctx context.Context, user *
 	args := m.Called(ctx, user, device)
 
 	var r0 *ent.SecondFactorCode
-	if args.Get(1) != nil {
-		r0 = args.Get(1).(*ent.SecondFactorCode)
+	if args.Get(0) != nil {
+		r0 = args.Get(0).(*ent.SecondFactorCode)
 	}
 
-	return r0, args.Error(2)
+	return r0, args.Error(1)
 }
 
 func (m *MockUsersRepository) GetUserByID(ctx context.Context, ID int) (*ent.User, error) {
@@ -244,7 +245,6 @@ func (m *MockUsersRepository) CreateUserAction(
 	user *ent.User,
 	action, originDevice, details string,
 ) error {
-
 	args := m.Called(ctx, user, action, originDevice, details)
 	return args.Error(0)
 }

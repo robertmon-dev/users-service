@@ -10,8 +10,10 @@ import (
 	"users-service/app/config"
 	"users-service/app/controllers"
 	"users-service/app/infrastructure"
+	"users-service/app/middlewares"
 	"users-service/app/models/ent"
 	"users-service/app/repositories"
+	"users-service/app/routes"
 	"users-service/app/services"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
@@ -29,9 +31,10 @@ func NewTestAppContainer(
 	pubKey crypto.PublicKey,
 	privKey crypto.PrivateKey,
 ) *AppContainer {
-	cache := infrastructure.NewCacheStore(redis, logger, "a-32-byte-long-test-secret-key!!")
+	cache := infrastructure.NewCacheStore(redis, logger, testSettings.EncryptionSecretKey)
 	repo := repositories.NewUsersRepository(cache, db, nil, logger)
 	notifier := infrastructure.NewEventNotifier(kafkaProducer, logger, "notifications", time.Second*10)
+	consumerManager := infrastructure.NewConsumerManager(logger)
 
 	privBytes, err := x509.MarshalPKCS8PrivateKey(privKey)
 	if err != nil {
@@ -54,8 +57,9 @@ func NewTestAppContainer(
 	passwordService := services.NewPasswordService(logger, []byte(testSettings.HashingPepper), 10)
 
 	serviceContainer := &ServiceContainer{
-		AuthService:  services.NewAuthService(repo, notifier, logger, bearerService, passwordService),
-		UsersService: services.NewUsersService(repo, notifier, logger),
+		AuthService:        services.NewAuthService(repo, notifier, logger, bearerService, passwordService),
+		UsersService:       services.NewUsersService(repo, notifier, logger),
+		DiagnosticsService: services.NewDiagnosticsService(repo, cache, notifier, consumerManager, logger),
 	}
 
 	controllerContainer := &ControllerContainer{
@@ -68,10 +72,14 @@ func NewTestAppContainer(
 			serviceContainer.UsersService,
 			logger,
 		),
+		DiagnosticsController: controllers.NewDiagnosticsController(
+			serviceContainer.DiagnosticsService,
+			logger,
+		),
 	}
 
 	router := gin.New()
-	RegisterAllRoutes(router, controllerContainer)
+	RegisterAllRoutes(router, controllerContainer, serviceContainer, cache, logger, testSettings)
 
 	return &AppContainer{
 		Router:      router,
@@ -81,20 +89,21 @@ func NewTestAppContainer(
 	}
 }
 
-func RegisterAllRoutes(router *gin.Engine, controllers *ControllerContainer) {
-	apiV1 := router.Group("/api/v1")
+func RegisterAllRoutes(
+	router *gin.Engine,
+	controllerContainer *ControllerContainer,
+	serviceContainer *ServiceContainer,
+	cache infrastructure.CacheStoreInterface,
+	logger zerolog.Logger,
+	testSettings *config.Settings,
+) {
+	middlewaresStore := middlewares.NewMiddlewares(cache, logger, testSettings.ApiVersion, testSettings.Environment)
+	tracker := middlewares.NewRequestTracker(40)
 
-	authRoutes := apiV1.Group("/auth")
-	{
-		authRoutes.POST("/register", controllers.AuthController.Register)
-		authRoutes.POST("/login", controllers.AuthController.Login)
-	}
+	router.Use(middlewaresStore.RequestAuthenticationMiddleware())
 
-	usersRoutes := apiV1.Group("/users")
-	{
-		usersRoutes.PATCH("/update", controllers.UsersController.UpdateUser)
-		usersRoutes.PATCH("/details/update", controllers.UsersController.UpdateDetails)
-		usersRoutes.PATCH("/settings/update", controllers.UsersController.UpdateSettings)
-		usersRoutes.DELETE("/remove", controllers.UsersController.RemoveAccount)
-	}
+	api := router.Group("/api/v1")
+	routes.RegisterAuthRoutes("/auth", api, controllerContainer.AuthController, tracker, middlewaresStore, logger)
+	routes.RegisterUserRoutes("/users", api, controllerContainer.UsersController, serviceContainer.AuthService, tracker, middlewaresStore, logger)
+	routes.RegisterDiagnosticsRoutes("/diagnostics", api, controllerContainer.DiagnosticsController, tracker, middlewaresStore, logger)
 }

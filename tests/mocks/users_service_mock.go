@@ -3,6 +3,7 @@ package mocks
 
 import (
 	"context"
+
 	"users-service/app/models/ent"
 	"users-service/app/models/requests"
 
@@ -19,7 +20,6 @@ func (m *MockUsersService) UpdateUser(ctx context.Context, userID int, req *requ
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*ent.User), args.Error(1)
-
 }
 
 func (m *MockUsersService) UpdateDetails(ctx context.Context, userID int, req *requests.Details) (*ent.User, error) {
@@ -69,7 +69,6 @@ func (m *MockUsersService) UpdateLocation(
 	userID int,
 	req *requests.Location,
 ) (*ent.User, error) {
-
 	args := m.Called(ctx, userID, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -91,7 +90,7 @@ func (m *MockUsersService) GetUserPrivate(
 }
 
 func (m *MockUsersService) AddRole(ctx context.Context, userID, roleID int) (*ent.User, error) {
-	args := m.Called(ctx, userID)
+	args := m.Called(ctx, userID, roleID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -100,7 +99,7 @@ func (m *MockUsersService) AddRole(ctx context.Context, userID, roleID int) (*en
 }
 
 func (m *MockUsersService) RevokeRole(ctx context.Context, userID, roleID int) (*ent.User, error) {
-	args := m.Called(ctx, userID)
+	args := m.Called(ctx, userID, roleID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
