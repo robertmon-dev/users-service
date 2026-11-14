@@ -2,13 +2,7 @@ package services
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"crypto/subtle"
-	"encoding/base64"
 	"errors"
-	"fmt"
-	"strings"
 	"time"
 
 	"users-service/app/infrastructure"
@@ -19,7 +13,6 @@ import (
 	"users-service/app/utils"
 
 	"github.com/rs/zerolog"
-	"golang.org/x/crypto/argon2"
 )
 
 type AuthService struct {
@@ -144,48 +137,6 @@ func (s *AuthService) HashPassword(password string) (string, error) {
 
 func (s *AuthService) CompareHashes(storedHash, password string) error {
 	return s.PasswordService.CompareHashes(storedHash, password)
-}
-
-func (s *AuthService) unusedCompareHashes(storedHash, password string) error {
-	parts := strings.Split(storedHash, "$")
-	if len(parts) != 6 {
-		return errors.New("invalid stored hash format")
-	}
-
-	var memory, hashTime uint32
-	var threads uint8
-	_, err := fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d", &memory, &hashTime, &threads)
-	if err != nil {
-		return fmt.Errorf("failed to parse hash parameters: %w", err)
-	}
-
-	salt, err := base64.RawStdEncoding.DecodeString(parts[4])
-	if err != nil {
-		return fmt.Errorf("failed to decode salt from hash: %w", err)
-	}
-
-	hash, err := base64.RawStdEncoding.DecodeString(parts[5])
-	if err != nil {
-		return fmt.Errorf("failed to decode hash part: %w", err)
-	}
-
-	resultChan := make(chan error, 1)
-
-	s.HashPool <- func() {
-		h := hmac.New(sha256.New, s.HashingPepper)
-		h.Write([]byte(password))
-		hmacValue := h.Sum(nil)
-
-		comparisonHash := argon2.IDKey(hmacValue, salt, hashTime, memory, threads, uint32(len(hash)))
-
-		if subtle.ConstantTimeCompare(hash, comparisonHash) == 1 {
-			resultChan <- nil
-		} else {
-			resultChan <- errors.New("invalid credentials")
-		}
-	}
-
-	return <-resultChan
 }
 
 func (s *AuthService) Login(ctx context.Context, req *requests.Login) (*ent.User, string, error) {
