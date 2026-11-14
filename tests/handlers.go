@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
 	"users-service/app/models/ent"
 	"users-service/tests/registry"
 
@@ -330,9 +331,7 @@ func handleDBRowCount(t *testing.T, tx *ent.Tx, step Step, dependencies map[stri
 	modelClient := manager.GetClient(tx.Client())
 	query := reflect.ValueOf(modelClient).MethodByName("Query").Call(nil)[0]
 
-	if len(params.FilterBy) > 0 {
-		// TO DO
-	}
+	require.Empty(t, params.FilterBy, "dbRowCount filter_by is not implemented; remove it or count without a filter")
 
 	countMethod := query.MethodByName("Count")
 	results := countMethod.Call([]reflect.Value{reflect.ValueOf(context.Background())})
@@ -527,7 +526,7 @@ func resolveSingleDependencyGoValue(t *testing.T, jsonStringOrPlaceholder string
 				nestedValue := v.MapIndex(reflect.ValueOf(keys[i]))
 				require.True(t, nestedValue.IsValid(), "Key '%s' not found in map %T for dependency '%s'", keys[i], currentVal, strings.Join(keys[:i+1], "."))
 				currentVal = nestedValue.Interface()
-			} else if (v.Kind() == reflect.Slice || v.Kind() == reflect.Array) && (regexp.MustCompile(`^\d+$`).MatchString(keys[i])) {
+			} else if (v.Kind() == reflect.Slice || v.Kind() == reflect.Array) && regexp.MustCompile(`^\d+$`).MatchString(keys[i]) {
 				idx, convErr := strconv.Atoi(keys[i])
 				require.NoError(t, convErr, "Invalid array index '%s' in path for dependency '%s'", keys[i], strings.Join(keys[:i+1], "."))
 				require.True(t, idx >= 0 && idx < v.Len(), "Array index out of bounds: %d for array of length %d in dependency '%s'", idx, v.Len(), strings.Join(keys[:i+1], "."))
@@ -581,7 +580,7 @@ func resolveDependencies(t *testing.T, rawData json.RawMessage, dependencies map
 				nestedValue := v.MapIndex(reflect.ValueOf(keys[i]))
 				require.True(t, nestedValue.IsValid(), "Key '%s' not found in map %T for dependency '%s'", keys[i], currentVal, strings.Join(keys[:i+1], "."))
 				currentVal = nestedValue.Interface()
-			} else if (v.Kind() == reflect.Slice || v.Kind() == reflect.Array) && (regexp.MustCompile(`^\d+$`).MatchString(keys[i])) {
+			} else if (v.Kind() == reflect.Slice || v.Kind() == reflect.Array) && regexp.MustCompile(`^\d+$`).MatchString(keys[i]) {
 				idx, convErr := strconv.Atoi(keys[i])
 				require.NoError(t, convErr, "Invalid array index '%s' in path for dependency '%s'", keys[i], strings.Join(keys[:i+1], "."))
 				require.True(t, idx >= 0 && idx < v.Len(), "Array index out of bounds: %d for array of length %d in dependency '%s'", idx, v.Len(), strings.Join(keys[:i+1], "."))
