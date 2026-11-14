@@ -45,7 +45,7 @@ cd users-service
 make setup
 ```
 
-`make setup` downloads Go modules, installs dev tools (`swag`, `mockery`, `ent`, `air`, `golangci-lint`), starts local infrastructure (Postgres, Redis, a 3-broker Kafka cluster), generates Ent models/mocks, and builds the binary.
+`make setup` downloads Go modules, installs dev tools (`swag`, `mockery`, `ent`, `air`, `golangci-lint`), generates a local JWT keypair and Postgres TLS certificates, starts local infrastructure (Postgres with TLS, Redis, a 3-broker Kafka cluster), generates Ent models/mocks, and builds the binary.
 
 Copy `.env.example` to `.env` and adjust it to your local setup before starting the service:
 
@@ -70,6 +70,7 @@ make dev
 - `make up` / `make down` / `make logs` — start/stop/follow the full Docker stack (infra + the service itself, hot-reloaded via `air`)
 - `make build` / `make run` — build the binary, or build and run it directly
 - `make generate-keys` — generate a local Ed25519 JWT keypair
+- `make generate-db-certs` — generate a local CA/server/client TLS cert chain for Postgres
 - `make generate-ent` / `make generate-mocks` / `make generate-swagger` — regenerate Ent models, mocks, and Swagger docs
 - `make lint` / `make lint-fix` — run `golangci-lint`
 - `make clean` / `make nuke` — remove build artifacts, or also drop local infrastructure volumes
@@ -94,23 +95,27 @@ JWT_PUBLIC_KEY_PATH="public_key.pem"
 DB_USER="users_service"
 DB_PASSWORD="users_service_password"
 DB_HOST="localhost"
-DB_PORT="5432"
+DB_PORT="5434"
 DB_NAME="users_db"
+DB_SSL_CA_PATH="docker/certs/ca.crt"
+DB_SSL_CERT_PATH="docker/certs/client.crt"
+DB_SSL_KEY_PATH="docker/certs/client.key"
 
 REDIS_HOST="localhost"
-REDIS_PORT="6379"
+REDIS_PORT="6381"
 
 KAFKA_BOOTSTRAP_SERVERS="localhost:9093,localhost:9095,localhost:9097"
 KAFKA_SECURITY_PROTOCOL="PLAINTEXT"
 ```
 
-`make infra-up` (and `make up`) provision Postgres, Redis, and a local 3-broker Kafka cluster (KRaft mode, no Zookeeper) matching these defaults — see `docker/docker-compose.local.yml` and `docker/docker-compose.yml`.
+`make infra-up` (and `make up`) provision Postgres (TLS-only), Redis, and a local 3-broker Kafka cluster (KRaft mode, no Zookeeper) matching these defaults — see `docker/docker-compose.local.yml` and `docker/docker-compose.yml`. Postgres and Redis are exposed on non-default host ports (`5434`, `6381`) to avoid clashing with other local stacks.
 
-### Generating JWT keys
+### Generating JWT keys and TLS certificates
 ```bash
 make generate-keys
+make generate-db-certs
 ```
-This writes `private_key.pem` and `public_key.pem` to the repo root (gitignored), matching `JWT_PRIVATE_KEY_PATH` / `JWT_PUBLIC_KEY_PATH` in `.env.example`.
+`generate-keys` writes `private_key.pem` and `public_key.pem` to the repo root (gitignored), matching `JWT_PRIVATE_KEY_PATH` / `JWT_PUBLIC_KEY_PATH`. `generate-db-certs` writes a local CA plus server/client certs to `docker/certs/` (gitignored) and fixes the server key ownership so Postgres accepts it; the app connects via `sslmode=verify-full`, so this must run before `make infra-up` brings up Postgres for the first time — `make setup` already does both in order.
 
 ## Project Structure
 ```bash
