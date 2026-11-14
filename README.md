@@ -107,9 +107,9 @@ KAFKA_SECURITY_PROTOCOL="PLAINTEXT"
 
 ### Generating JWT keys
 ```bash
-openssl genpkey -algorithm ED25519 -out private_key.pem
-openssl pkey -in private_key.pem -pubout -out public_key.pem
+make generate-keys
 ```
+This writes `private_key.pem` and `public_key.pem` to the repo root (gitignored), matching `JWT_PRIVATE_KEY_PATH` / `JWT_PUBLIC_KEY_PATH` in `.env.example`.
 
 ## Project Structure
 ```bash
