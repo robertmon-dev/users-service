@@ -153,7 +153,9 @@ func NewKafkaConsumer(
 	err = consumer.Subscribe(topic, rebalanceCb)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to subscribe to Kafka topic")
-		consumer.Close()
+		if closeErr := consumer.Close(); closeErr != nil {
+			logger.Error().Err(closeErr).Msg("Failed to close Kafka consumer after subscribe error")
+		}
 		return nil, fmt.Errorf("failed to subscribe to topic %s: %w", topic, err)
 	}
 
@@ -162,7 +164,11 @@ func NewKafkaConsumer(
 	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {
-		defer consumer.Close()
+		defer func() {
+			if closeErr := consumer.Close(); closeErr != nil {
+				logger.Error().Err(closeErr).Str("topic", topic).Msg("Failed to close Kafka consumer")
+			}
+		}()
 
 		for {
 			select {
