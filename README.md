@@ -69,6 +69,7 @@ make dev
 - `make infra-up` / `make infra-down` / `make infra-logs` — start/stop/follow local Postgres, Redis, and the Kafka cluster only
 - `make up` / `make down` / `make logs` — start/stop/follow the full Docker stack (infra + the service itself, hot-reloaded via `air`)
 - `make build` / `make run` — build the binary, or build and run it directly
+- `make generate-keys` — generate a local Ed25519 JWT keypair
 - `make generate-ent` / `make generate-mocks` / `make generate-swagger` — regenerate Ent models, mocks, and Swagger docs
 - `make lint` / `make lint-fix` — run `golangci-lint`
 - `make clean` / `make nuke` — remove build artifacts, or also drop local infrastructure volumes
