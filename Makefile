@@ -37,6 +37,7 @@ setup: ## Full project orchestration (install -> infra -> generate -> build)
 	@echo "$(CYAN)=> Running full project setup...$(RESET)"
 	@$(MAKE) install
 	@$(MAKE) generate-keys
+	@$(MAKE) generate-db-certs
 	@$(MAKE) infra-up
 	@$(MAKE) generate-ent
 	@$(MAKE) generate-mocks
