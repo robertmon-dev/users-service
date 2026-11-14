@@ -1,24 +1,20 @@
 # Users Service
 
-## Still under construction
+**users-service** is a central Go microservice responsible for user management, authorization, and security within the application ecosystem, built with Gin, Ent, and a Postgres + Redis + Kafka backing stack. It was designed as a secure, event-driven identity foundation for the rest of the microservice landscape.
 
 ## Table of Contents
-- [Functionality Overview](#functionality-overview)
-- [Prerequisites](#prerequisites)
+- [Key Features](#key-features)
 - [Installation](#installation)
-- [Post-Installation](#post-installation)
+- [Configuration](#configuration)
+- [Project Structure](#project-structure)
+- [Development and Testing](#development-and-testing)
+- [Manually Building, Tagging, and Pushing Docker Images](#manually-building-tagging-and-pushing-docker-images)
 - [Troubleshooting](#troubleshooting)
-- [Directory Structure](#directory-structure)
-- [Testing](#testing)
-- [Useful Commands](#useful-commands)
-- [Useful Addresses](#useful-addresses)
+- [Useful Commands and Addresses](#useful-commands-and-addresses)
+- [Updates](#updates)
 - [License](#license)
-- [Notes](#notes)
 
-## Functionality Overview
-The **Users Service** is a central microservice responsible for user management, authorization, and security within the application ecosystem. Its primary goal is to provide a robust and secure foundation for all operations related to user identity.
-
-Key features of the service include:
+## Key Features
 - **User Lifecycle Management**: Full support for registration, account activation, verification, and account deletion processes.
 - **Advanced Authorization**:
     - Generation and validation of secure JWTs (Ed25519).
@@ -26,71 +22,103 @@ Key features of the service include:
     - Password reset mechanism.
 - **Device Fingerprinting**: Unique identification of each device a user logs in from to enhance security and enable session management.
 - **Access Control (Roles & Permissions)**: A system of roles and permissions that allows for fine-grained control over access to different parts of the system.
-- **Event-Driven System**: Publication of key events (e.g., user registration, login) to a Kafka broker, enabling asynchronous communication between microservices.
+- **Event-Driven System**: Publication of key events (e.g., user registration, login) to a Kafka cluster, enabling asynchronous communication between microservices.
+- **Caching**: Redis-backed caching for short-lived, security-sensitive data (e.g., activation and reset codes).
+- **Self-Documenting API**: Swagger/OpenAPI docs and Redoc, generated from code annotations via `swag`.
 - **Auditing and Activity Tracking**: Recording key actions performed by users.
 
-## Prerequisites
-- **Linux, Debian 12 preferred**: Windows k8s installation might be problematic for promtail configuration.
-- **Golang, 1.24 or newer**: As dependencies in libraries required these versions.
-- **Docker Engine 28.2.2 or newer**: Installed and running version.
-- **Docker Desktop version 28.1.1 or newer**: If you decide to use the UI version.
-- **Dockerfile**: Located at `./docker` for the main users service project folder.
-
 ## Installation
-1. Clone the repository:
-   ```bash
-      git clone https://github.com/factory-chainline/users-service
-      cd users-service
-   ```
-2. Download the dependencies:
-   ```bash
-      go mod tidy
-   ```
 
-3. If the installation was problematic:
-   - **Ensure you have Ent client downloaded properly**
-   ```bash
-      go get entgo.io/ent/cmd/ent 
-   ```
+### Requirements
+- **Linux, Debian 12 preferred**: Windows k8s installation might be problematic for promtail configuration.
+- **Golang 1.24 or newer**: As dependencies in libraries required these versions.
+- **Docker Engine 28.2.2 or newer** (or **Docker Desktop 28.1.1+**): Installed and running, for local infrastructure and integration/e2e tests.
+- **`make`**: The project is driven by a `Makefile`.
 
-   - **Get all of its dependencies**
-   ```bash
-      go get entgo.io/ent/cmd/internal/printer@v0.14.4   
-   ```
+### Build and Installation
+The project includes a `Makefile` that orchestrates module installation, dev-tool setup, local infrastructure, and code generation:
 
-## Post-Installation
-1. Work with the code.
-
-## Troubleshooting
-- **Continuous Integration Actions Failed**:
-  Ensure your code passed tests locally before commit. It will be checked anyway, but don't waste our common memory.
-- **Docker not running**:
-  Start Docker before running the tests.
-- **Manifest Errors**:
-  Ensure all `settings.yaml` in the `tests/settings` folder are properly configured for your local environment.
-
-## Manually building, tagging, and pushing Docker images
-- **Building Docker images**
-   ```bash
-      docker build -t ghcr.io/factory-chainline/users-service:{current-version} -f ./docker/Dockerfile .   
-   ```
-   ```bash
-      make build-docker 
-   ``` 
-
-- **Tagging a Docker image**
-   ```bash
-      docker tag ghcr.io/factory-chainline/users-service:<source> ghcr.io/factory-chainline/users-service:<target>  
-   ```   
-- **Pushing a Docker image**
-   ```bash
-      docker push ghcr.io/factory-chainline/users-service:<source>
-   ```  
-
-## Directory Structure
 ```bash
-.
-.
+git clone https://github.com/factory-chainline/users-service
+cd users-service
+
+make setup
+```
+
+`make setup` downloads Go modules, installs dev tools (`swag`, `mockery`, `ent`, `air`, `golangci-lint`), generates a local JWT keypair and Postgres TLS certificates, starts local infrastructure (Postgres with TLS, Redis, a 3-broker Kafka cluster), generates Ent models/mocks, and builds the binary.
+
+Copy `.env.example` to `.env` and adjust it to your local setup before starting the service:
+
+```bash
+cp .env.example .env
+```
+
+If the installation was problematic, ensure the Ent client and its dependencies are available:
+```bash
+go get entgo.io/ent/cmd/ent
+go get entgo.io/ent/cmd/internal/printer@v0.14.4
+```
+
+Start development afterwards with:
+
+```bash
+make dev
+```
+
+### Other useful targets
+- `make infra-up` / `make infra-down` / `make infra-logs` — start/stop/follow local Postgres, Redis, and the Kafka cluster only
+- `make up` / `make down` / `make logs` — start/stop/follow the full Docker stack (infra + the service itself, hot-reloaded via `air`)
+- `make build` / `make run` — build the binary, or build and run it directly
+- `make generate-keys` — generate a local Ed25519 JWT keypair
+- `make generate-db-certs` — generate a local CA/server/client TLS cert chain for Postgres
+- `make generate-ent` / `make generate-mocks` / `make generate-swagger` — regenerate Ent models, mocks, and Swagger docs
+- `make lint` / `make lint-fix` — run `golangci-lint`
+- `make clean` / `make nuke` — remove build artifacts, or also drop local infrastructure volumes
+
+Run `make help` to list every available target.
+
+## Configuration
+
+### Environment Variables
+The service reads configuration from a `.env` file at the repo root (see `.env.example` for the full list, consumed via Viper):
+
+```bash
+API_VERSION="v1"
+API_PORT=":8000"
+ENVIRONMENT="development"
+LOG_LEVEL="debug"
+
+ENCRYPTION_SECRET_KEY="<32-byte secret key>"
+JWT_PRIVATE_KEY_PATH="private_key.pem"
+JWT_PUBLIC_KEY_PATH="public_key.pem"
+
+DB_USER="users_service"
+DB_PASSWORD="users_service_password"
+DB_HOST="localhost"
+DB_PORT="5434"
+DB_NAME="users_db"
+DB_SSL_CA_PATH="docker/certs/ca.crt"
+DB_SSL_CERT_PATH="docker/certs/client.crt"
+DB_SSL_KEY_PATH="docker/certs/client.key"
+
+REDIS_HOST="localhost"
+REDIS_PORT="6381"
+
+KAFKA_BOOTSTRAP_SERVERS="localhost:9093,localhost:9095,localhost:9097"
+KAFKA_SECURITY_PROTOCOL="PLAINTEXT"
+```
+
+`make infra-up` (and `make up`) provision Postgres (TLS-only), Redis, and a local 3-broker Kafka cluster (KRaft mode, no Zookeeper) matching these defaults — see `docker/docker-compose.local.yml` and `docker/docker-compose.yml`. Postgres and Redis are exposed on non-default host ports (`5434`, `6381`) to avoid clashing with other local stacks.
+
+### Generating JWT keys and TLS certificates
+```bash
+make generate-keys
+make generate-db-certs
+```
+`generate-keys` writes `private_key.pem` and `public_key.pem` to the repo root (gitignored), matching `JWT_PRIVATE_KEY_PATH` / `JWT_PUBLIC_KEY_PATH`. `generate-db-certs` writes a local CA plus server/client certs to `docker/certs/` (gitignored) and fixes the server key ownership so Postgres accepts it; the app connects via `sslmode=verify-full`, so this must run before `make infra-up` brings up Postgres for the first time — `make setup` already does both in order.
+
+## Project Structure
+```bash
 .
 ├── app
 │   ├── cmd
@@ -101,25 +129,6 @@ Key features of the service include:
 │   ├── middlewares
 │   ├── models
 │   │   ├── ent
-│   │   │   ├── activationcode
-│   │   │   ├── entrepreneurdetails
-│   │   │   ├── enttest
-│   │   │   ├── hook
-│   │   │   ├── location
-│   │   │   ├── migrate
-│   │   │   ├── predicate
-│   │   │   ├── resetcode
-│   │   │   ├── rolepermission
-│   │   │   ├── runtime
-│   │   │   ├── schema
-│   │   │   ├── secondfactorcode
-│   │   │   ├── user
-│   │   │   ├── useraction
-│   │   │   ├── userdetails
-│   │   │   ├── userdevice
-│   │   │   ├── userrole
-│   │   │   ├── usersettings
-│   │   │   └── verificationcode
 │   │   ├── events
 │   │   ├── handlers
 │   │   ├── requests
@@ -129,31 +138,28 @@ Key features of the service include:
 │   ├── routes
 │   ├── services
 │   └── utils
-├── docker
-└── tests
-    ├── mocks
-    ├── registry
-    ├── resources
-    │   ├── e2e
-    │   ├── integration
-    │   └── unit
-    └── settings
+├── docker                 # Dockerfile (prod), Dockerfile.dev (local, hot-reloaded), compose files
+├── tests
+│   ├── mocks
+│   ├── registry
+│   ├── resources
+│   │   ├── e2e
+│   │   ├── integration
+│   │   └── unit
+│   └── settings
+├── .air.toml               # hot-reload config used by `make dev` / `make up`
+├── .env.example             # local environment template
+├── .golangci.yml             # lint configuration used by `make lint`
+└── Makefile                   # setup, dev, build, docker, infra, generate, test, lint targets
 ```
-## Testing
-- **Running unit tests**
-   ```bash
-      make test-unit
-   ```
 
-- **Running integration tests**
-   ```bash
-      make test-integration
-   ```
+## Development and Testing
 
-- **Running e2e tests**
-   ```bash
-      make test-e2e
-   ```
+### Running tests
+- **Unit tests**: `make test-unit`
+- **Integration tests** (requires Docker, uses Testcontainers): `make test-integration`
+- **End-to-end tests** (requires Docker): `make test-e2e`
+- **Everything**: `make test`
 
 ### Defining Tests in JSON
 
@@ -169,7 +175,7 @@ The `setup_data` array is used to populate the database with a specific state be
   {
     "model": "UserRole",
     "data": {
-      "id": 1, 
+      "id": 1,
       "name": "admin"
     }
   },
@@ -179,7 +185,7 @@ The `setup_data` array is used to populate the database with a specific state be
       "id": 1,
       "mail": "admin@example.com",
       "password": "securepassword123",
-      "user_role_ids": [1] 
+      "user_role_ids": [1]
     }
   }
 ]
@@ -247,47 +253,46 @@ The `steps` array defines the sequence of actions and assertions for a test case
 - **`expected`**: The expected outcome (e.g., a specific return value or HTTP status code).
 - **`store_result_as`**: (Optional) A key to store the result of this step, allowing it to be used as a dependency in subsequent steps (e.g., `{{myResult.data.id}}`).
 
-## Useful Commands
-- **Generating keys for ED25519**
-   Generate your private key:
+## Manually Building, Tagging, and Pushing Docker Images
+- **Building the production Docker image**
    ```bash
-      openssl genpkey -algorithm ED25519 -out private_key.pem
+      make build-docker
    ```
-   Then resolve the public key:
+   (equivalent to `docker build -t ghcr.io/factory-chainline/users-service:{current-version} -f ./docker/Dockerfile .`)
+
+- **Tagging a Docker image**
    ```bash
-      openssl pkey -in private_key.pem -pubout -out public_key.pem
+      docker tag ghcr.io/factory-chainline/users-service:<source> ghcr.io/factory-chainline/users-service:<target>
    ```
 
-- **Generating Swagger documentation**
+- **Pushing a Docker image**
    ```bash
-      swag init -g app/cmd/main.go -o app/docs   
-   ``` 
+      make docker-login
+      make docker-push
+   ```
 
-- **Generating Ent schema models**
-   ```bash
-      go run entgo.io/ent/cmd/ent generate ./app/models/ent/schema    
-   ``` 
+## Troubleshooting
+- **Continuous Integration Actions Failed**:
+  Ensure your code passed tests locally before commit. It will be checked anyway, but don't waste our common memory.
+- **Docker not running**:
+  Start Docker before running `make infra-up`, `make up`, or the integration/e2e tests.
+- **Manifest Errors**:
+  Ensure all `settings.yaml` in the `tests/settings` folder are properly configured for your local environment.
+
+## Useful Commands and Addresses
 - **Hosting documentation locally**
    ```bash
       godoc -http=:6060
-   ``` 
-
-## Useful Addresses
+   ```
 - **Forwarding users-service port without ingress**
    ```bash
-      kubectl port-forward svc/users-service -n users-service 8000:8000  
+      kubectl port-forward svc/users-service -n users-service 8000:8000
    ```
+- **Swagger address**: `localhost:8000/swagger`
+- **Redoc address**: `localhost:8000/redoc`
 
-- **Swagger address**
-   ```bash
-      localhost:8000/swagger
-   ```  
-
-- **Swagger address**
-   ```bash
-      localhost:8000/redoc
-   ```    
 ## Updates
 ![Alt](https://repobeats.axiom.co/api/embed/0ccd32c70b973168f94e36384a64155cb9867f07.svg "Repobeats analytics image")
+
 ## License
-© 2025 Robert Moń, integrate it whenever you want for non commercial purpoes.
+© 2025 Robert Moń, integrate it whenever you want for non commercial purposes.

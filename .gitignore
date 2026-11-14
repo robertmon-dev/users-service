@@ -13,6 +13,7 @@ vendor/
 *.log
 *.out
 *.tmp
+tmp/
 
 *.test
 coverage.out
@@ -24,6 +25,10 @@ e2e-tests.xml
 .env
 .env.*
 !/.env.example
+
+private_key.pem
+public_key.pem
+docker/certs/
 
 .vscode/
 .idea/

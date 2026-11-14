@@ -1,0 +1,92 @@
+name: users-service-local
+
+x-kafka-env: &kafka-env
+  KAFKA_CFG_PROCESS_ROLES: controller,broker
+  KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+  KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+  KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:9094,2@kafka-2:9094,3@kafka-3:9094
+  ALLOW_PLAINTEXT_LISTENER: "yes"
+  KAFKA_KRAFT_CLUSTER_ID: pLcxyRuTQbSuH-Tv1FBVzg
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: users_service_db_local
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_USER: users_service
+      POSTGRES_PASSWORD: users_service_password
+      POSTGRES_DB: users_db
+    command:
+      - "postgres"
+      - "-c"
+      - "ssl=on"
+      - "-c"
+      - "ssl_cert_file=/certs/server.crt"
+      - "-c"
+      - "ssl_key_file=/certs/server.key"
+      - "-c"
+      - "ssl_ca_file=/certs/ca.crt"
+    volumes:
+      - postgres_data_local:/var/lib/postgresql/data
+      - ./certs:/certs:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U users_service"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:alpine
+    container_name: users_service_redis_local
+    ports:
+      - "6381:6379"
+    volumes:
+      - redis_data_local:/data
+
+  kafka-1:
+    image: bitnamilegacy/kafka:4.0.0-debian-12-r10
+    container_name: users_service_kafka_1_local
+    ports:
+      - "9093:9093"
+    environment:
+      <<: *kafka-env
+      KAFKA_CFG_NODE_ID: 1
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9094,EXTERNAL://:9093
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka-1:9092,EXTERNAL://localhost:9093
+    volumes:
+      - kafka_1_data_local:/bitnami/kafka
+
+  kafka-2:
+    image: bitnamilegacy/kafka:4.0.0-debian-12-r10
+    container_name: users_service_kafka_2_local
+    ports:
+      - "9095:9095"
+    environment:
+      <<: *kafka-env
+      KAFKA_CFG_NODE_ID: 2
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9094,EXTERNAL://:9095
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka-2:9092,EXTERNAL://localhost:9095
+    volumes:
+      - kafka_2_data_local:/bitnami/kafka
+
+  kafka-3:
+    image: bitnamilegacy/kafka:4.0.0-debian-12-r10
+    container_name: users_service_kafka_3_local
+    ports:
+      - "9097:9097"
+    environment:
+      <<: *kafka-env
+      KAFKA_CFG_NODE_ID: 3
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9094,EXTERNAL://:9097
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka-3:9092,EXTERNAL://localhost:9097
+    volumes:
+      - kafka_3_data_local:/bitnami/kafka
+
+volumes:
+  postgres_data_local:
+  redis_data_local:
+  kafka_1_data_local:
+  kafka_2_data_local:
+  kafka_3_data_local:

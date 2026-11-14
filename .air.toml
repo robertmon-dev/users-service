@@ -1,0 +1,22 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "swag init -g ./app/cmd/main.go -o ./app/docs && go build -o ./tmp/users-service ./app/cmd/main.go"
+bin = "tmp/users-service"
+full_bin = "./tmp/users-service"
+include_ext = ["go"]
+exclude_dir = ["tmp", "docker", "tests", "app/docs"]
+exclude_regex = ["_test.go"]
+delay = 1000
+stop_on_error = true
+log = "air.log"
+
+[color]
+main = "magenta"
+watcher = "cyan"
+build = "yellow"
+runner = "green"
+
+[misc]
+clean_on_exit = true
