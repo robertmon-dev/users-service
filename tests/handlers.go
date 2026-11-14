@@ -603,13 +603,3 @@ func resolveDependencies(t *testing.T, rawData json.RawMessage, dependencies map
 	t.Logf("Final resolved JSON: %s", resolvedFinalJsonStr)
 	return json.RawMessage(resolvedFinalJsonStr)
 }
-
-func parseJsonStringContentToNativeType(t *testing.T, jsonContentString string) (interface{}, error) {
-	var result interface{}
-
-	if err := json.Unmarshal([]byte(jsonContentString), &result); err == nil {
-		return result, nil
-	}
-
-	return jsonContentString, nil
-}

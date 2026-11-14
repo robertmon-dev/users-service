@@ -8,6 +8,7 @@ import (
 	"os"
 	"testing"
 	"time"
+
 	"users-service/app/config"
 	"users-service/app/models/ent"
 	"users-service/tests/registry"
@@ -71,19 +72,18 @@ func setupIntegrationEnvironment() {
 
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithHost(testSettings.DockerSocket))
 	if err != nil {
-		log.Printf("Failed to connect to docker daemon %s. Skipping integration tests", err)
-		os.Exit(0)
+		log.Fatalf("Failed to connect to docker daemon %s. Integration/e2e tests require Docker.", err)
 	}
 	defer cli.Close()
 
 	if _, err := cli.Ping(ctx); err != nil {
-		log.Printf("Docker daemon is turned off: %s. Skipping integration tests", err)
-		os.Exit(0)
+		log.Fatalf("Docker daemon is unreachable: %s. Integration/e2e tests require Docker.", err)
 	}
 
 	log.Println("--- Setting up INTEGRATION/E2E environment... ---")
 
-	pgContainer, err := postgres.Run(ctx,
+	pgContainer, err := postgres.Run(
+		ctx,
 		"postgres:16-alpine",
 		postgres.WithDatabase("testdb"),
 		postgres.WithUsername("testuser"),
@@ -113,7 +113,8 @@ func setupIntegrationEnvironment() {
 	}
 
 	TestDB = dbClient
-	redisContainer, err := tcredis.Run(ctx,
+	redisContainer, err := tcredis.Run(
+		ctx,
 		"redis:7-alpine",
 	)
 	if err != nil {
@@ -128,7 +129,8 @@ func setupIntegrationEnvironment() {
 	opts, _ := redis.ParseURL(redisURI)
 	redisClient := redis.NewClient(opts)
 
-	kafkaContainer, err := tckafka.Run(ctx,
+	kafkaContainer, err := tckafka.Run(
+		ctx,
 		"confluentinc/cp-kafka:7.3.2",
 		tckafka.WithClusterID("test-cluster"),
 	)
