@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+
 	"users-service/app/controllers"
 	"users-service/app/infrastructure"
 	"users-service/app/middlewares"
@@ -111,7 +112,9 @@ func NewApp(settings *Settings) *Application {
 				logger.Fatal().Err(err).Str("topic", topic).Msg("Failed to create consumer")
 			}
 
-			consumerManager.Register(topic, consumerWrapper)
+			if err := consumerManager.Register(topic, consumerWrapper); err != nil {
+				logger.Fatal().Err(err).Str("topic", topic).Msg("Failed to register consumer")
+			}
 		}
 	}
 

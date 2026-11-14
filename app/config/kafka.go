@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"time"
+
 	"users-service/app/models/handlers"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
@@ -88,8 +89,8 @@ func NewKafkaConsumer(
 	topic string,
 	handler handlers.MessageHandler,
 	logger zerolog.Logger,
-	settings *Settings) (*handlers.ConsumerWrapper, error) {
-
+	settings *Settings,
+) (*handlers.ConsumerWrapper, error) {
 	config := &kafka.ConfigMap{
 		"bootstrap.servers":                     settings.KafkaBootstrapServers,
 		"security.protocol":                     settings.KafkaSecurityProtocol,
@@ -132,7 +133,10 @@ func NewKafkaConsumer(
 			logger.Info().
 				Str("partitions", fmt.Sprintf("%v", e.Partitions)).
 				Msg("Partitions assigned")
-			c.Assign(e.Partitions)
+			if err := c.Assign(e.Partitions); err != nil {
+				logger.Error().Err(err).Msg("Failed to assign partitions")
+				return err
+			}
 		case kafka.RevokedPartitions:
 			committedOffsets, err := c.Commit()
 			if err != nil {
