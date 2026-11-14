@@ -242,6 +242,23 @@ The `steps` array defines the sequence of actions and assertions for a test case
          "expected": {
             "statusCode": 200
          }
+      },
+      {
+         "type": "httpRequest",
+         "description": "Update the authenticated user's basic info",
+         "params": {
+            "method": "PATCH",
+            "path": "/api/v1/users/update",
+            "headers": {
+               "Authorization": "Bearer {{loginResult.data.token}}"
+            },
+            "body": {
+               "name": "Updated Name"
+            }
+         },
+         "expected": {
+            "statusCode": 200
+         }
       }
    ]
 }
@@ -249,9 +266,11 @@ The `steps` array defines the sequence of actions and assertions for a test case
 **Key Fields:**
 - **`type`**: The type of action to perform. Supported types are `executeFunction`, `httpRequest`, `dbRowCount`, and `dbAttributeEquals`.
 - **`description`**: A human-readable description of the step.
-- **`params`**: The parameters for the action (e.g., function name and arguments, or HTTP method and body).
+- **`params`**: The parameters for the action (e.g., function name and arguments, or HTTP method/path/body/headers).
 - **`expected`**: The expected outcome (e.g., a specific return value or HTTP status code).
 - **`store_result_as`**: (Optional) A key to store the result of this step, allowing it to be used as a dependency in subsequent steps (e.g., `{{myResult.data.id}}`).
+
+`httpRequest` steps accept an optional `headers` map (e.g. for `Authorization: Bearer {{...}}`); both `body` and `headers` values support `{{dependency.path}}` placeholders resolved from prior steps' stored results.
 
 ## Manually Building, Tagging, and Pushing Docker Images
 - **Building the production Docker image**
