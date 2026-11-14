@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
 	"users-service/app/infrastructure"
 	"users-service/app/models/ent"
 	requests "users-service/app/models/requests"
@@ -66,8 +67,8 @@ func NewAuthService(
 	logger zerolog.Logger,
 	publicKey crypto.PublicKey,
 	privateKey crypto.PrivateKey,
-	poolSize int) *AuthService {
-
+	poolSize int,
+) *AuthService {
 	authService := &AuthService{
 		UsersRepository: usersRepository,
 		EventNotifier:   eventNotifier,
@@ -88,17 +89,6 @@ func NewAuthService(
 	return authService
 }
 
-// GenerateJWT creates a signed JWT token for a user with specified roles.
-// It sets the user ID, roles, issuance time, and expiration based on TokenDuration.
-//
-// Parameters:
-//   - userID: The user’s ID.
-//   - deviceID: The device’s ID.
-//   - roles: A slice of role names for the user.
-//
-// Returns:
-//   - A string containing the signed JWT token, or empty if an error occurs.
-//   - An error if signing fails, or nil on success.
 func (s *AuthService) GenerateJWT(ctx context.Context, userID int, deviceID int, userRoles []models.UserRoleInfo) (string, error) {
 	s.Logger.Info().Int("user_id", userID).Int("device_id", deviceID).Msg("Generating JWT for device")
 
@@ -153,7 +143,6 @@ func (s *AuthService) ValidateJWT(ctx context.Context, tokenString string) (*mod
 			}
 			return s.PublicKey, nil
 		})
-
 		if err != nil {
 			s.Logger.Error().Err(err).Msg("JWT parsing failed")
 			resultChan <- models.JWTValidationResult{Claims: nil, Err: err}
@@ -245,8 +234,8 @@ func (s *AuthService) ResendActivationCode(ctx context.Context, req *requests.Ma
 
 func (s *AuthService) ActivateAccount(
 	ctx context.Context,
-	req *requests.Code) (*ent.User, error) {
-
+	req *requests.Code,
+) (*ent.User, error) {
 	user, err := s.UsersRepository.ActivateAccount(ctx, req.Code)
 	if err != nil {
 		return nil, errors.New("provided code doesn't exist")
