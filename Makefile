@@ -108,6 +108,7 @@ dev: infra-up ## Start the service locally with hot reload (requires air)
 build: ## Build the service binary
 	@echo "=> Building users-service binary..."
 	@$(GO) build -o ./users-service ./app/cmd/main.go
+	@cp app/docs/openapi.json app/docs/openapi.yaml .
 	@echo "=> Build complete."
 
 .PHONY: run
