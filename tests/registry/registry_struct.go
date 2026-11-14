@@ -90,8 +90,6 @@ func init() {
 
 	ModelTypeRegistry["responses.ErrorResponse"] = reflect.TypeOf(&responses.ErrorResponse{})
 	ModelTypeRegistry["responses.SuccessResponse"] = reflect.TypeOf(&responses.SuccessResponse{})
-	ModelTypeRegistry["responses.Message"] = reflect.TypeOf(&responses.Message{})
-	ModelTypeRegistry["responses.ProgressReporter"] = reflect.TypeOf(&responses.ProgressReporter{})
 
 	ModelTypeRegistry["events.BaseEvent"] = reflect.TypeOf(&events.BaseEvent{})
 	ModelTypeRegistry["events.RegistrationEvent"] = reflect.TypeOf(&events.RegistrationEvent{})
