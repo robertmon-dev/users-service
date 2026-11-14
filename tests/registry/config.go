@@ -2,8 +2,6 @@ package registry
 
 import (
 	"crypto"
-	"crypto/x509"
-	"encoding/pem"
 	"log"
 	"time"
 
@@ -16,6 +14,7 @@ import (
 	"users-service/app/routes"
 	"users-service/app/services"
 
+	entsql "entgo.io/ent/dialect/sql"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
@@ -25,6 +24,7 @@ import (
 func NewTestAppContainer(
 	testSettings *config.Settings,
 	db *ent.Client,
+	driver *entsql.Driver,
 	redis *redis.Client,
 	kafkaProducer *kafka.Producer,
 	logger zerolog.Logger,
@@ -32,28 +32,16 @@ func NewTestAppContainer(
 	privKey crypto.PrivateKey,
 ) *AppContainer {
 	cache := infrastructure.NewCacheStore(redis, logger, testSettings.EncryptionSecretKey)
-	repo := repositories.NewUsersRepository(cache, db, nil, logger)
+	repo := repositories.NewUsersRepository(cache, db, driver, logger)
 	notifier := infrastructure.NewEventNotifier(kafkaProducer, logger, "notifications", time.Second*10)
 	consumerManager := infrastructure.NewConsumerManager(logger)
-
-	privBytes, err := x509.MarshalPKCS8PrivateKey(privKey)
-	if err != nil {
-		log.Fatalf("failed to marshal private key: %v", err)
-	}
-	privPEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privBytes})
-
-	pubBytes, err := x509.MarshalPKIXPublicKey(pubKey)
-	if err != nil {
-		log.Fatalf("failed to marshal public key: %v", err)
-	}
-	pubPEM := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubBytes})
 
 	tokenDuration, err := time.ParseDuration(testSettings.TokenDuration)
 	if err != nil {
 		log.Fatalf("failed to parse token duration: %v", err)
 	}
 
-	bearerService := services.NewBearerService(logger, string(pubPEM), string(privPEM), tokenDuration)
+	bearerService := services.NewBearerService(logger, pubKey, privKey, tokenDuration)
 	passwordService := services.NewPasswordService(logger, []byte(testSettings.HashingPepper), 10)
 
 	serviceContainer := &ServiceContainer{
