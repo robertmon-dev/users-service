@@ -26,6 +26,9 @@ e2e-tests.xml
 .env.*
 !/.env.example
 
+private_key.pem
+public_key.pem
+
 .vscode/
 .idea/
 *.swp
