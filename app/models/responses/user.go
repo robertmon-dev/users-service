@@ -66,7 +66,7 @@ type UserPrivate struct {
 }
 
 func FromUserPrivate(user *ent.User, token ...string) *UserPrivate {
-	if user == nil || user.Edges.UserDetails == nil {
+	if user == nil {
 		return nil
 	}
 
