@@ -163,7 +163,7 @@ func TestAuthService_Login(t *testing.T) {
 			setupMocks: func() {
 				mockRepo.On("GetUserByMail", mock.Anything, req.Mail).Return(userWith2FA, nil).Once()
 				mockRepo.On("FindOrCreateDevice", mock.Anything, userWith2FA.ID, &req.Device).Return(&ent.UserDevice{ID: 2}, nil).Once()
-				mockRepo.On("CreateSecondFactorCode", mock.Anything, userWith2FA, mock.Anything).Return(userWith2FA, &ent.SecondFactorCode{}, nil).Once()
+				mockRepo.On("CreateSecondFactorCode", mock.Anything, userWith2FA, mock.Anything).Return(&ent.SecondFactorCode{}, nil).Once()
 				mockNotifier.On("CreateSecondFactorEvent", mock.Anything, mock.Anything).Return(nil).Once()
 			},
 			expectErr:     false,
