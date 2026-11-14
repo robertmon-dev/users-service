@@ -2,6 +2,8 @@
 # Users Service Makefile
 # ==============================================================================
 
+SHELL          := /bin/bash
+
 GO             = go
 GOLANGCI_LINT  = golangci-lint
 COMPOSE_LOCAL  = docker compose -f docker/docker-compose.local.yml
