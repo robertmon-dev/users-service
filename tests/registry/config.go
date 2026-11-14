@@ -6,6 +6,7 @@ import (
 	"encoding/pem"
 	"log"
 	"time"
+
 	"users-service/app/config"
 	"users-service/app/controllers"
 	"users-service/app/infrastructure"
@@ -26,8 +27,8 @@ func NewTestAppContainer(
 	kafkaProducer *kafka.Producer,
 	logger zerolog.Logger,
 	pubKey crypto.PublicKey,
-	privKey crypto.PrivateKey) *AppContainer {
-
+	privKey crypto.PrivateKey,
+) *AppContainer {
 	cache := infrastructure.NewCacheStore(redis, logger, "a-32-byte-long-test-secret-key!!")
 	repo := repositories.NewUsersRepository(cache, db, nil, logger)
 	notifier := infrastructure.NewEventNotifier(kafkaProducer, logger, "notifications", time.Second*10)
@@ -44,15 +45,16 @@ func NewTestAppContainer(
 	}
 	pubPEM := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubBytes})
 
+	tokenDuration, err := time.ParseDuration(testSettings.TokenDuration)
+	if err != nil {
+		log.Fatalf("failed to parse token duration: %v", err)
+	}
+
+	bearerService := services.NewBearerService(logger, string(pubPEM), string(privPEM), tokenDuration)
+	passwordService := services.NewPasswordService(logger, []byte(testSettings.HashingPepper), 10)
+
 	serviceContainer := &ServiceContainer{
-		AuthService: services.NewAuthService(
-			repo,
-			notifier,
-			logger,
-			string(pubPEM),
-			string(privPEM),
-			10,
-		),
+		AuthService:  services.NewAuthService(repo, notifier, logger, bearerService, passwordService),
 		UsersService: services.NewUsersService(repo, notifier, logger),
 	}
 

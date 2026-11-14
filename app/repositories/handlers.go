@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
 	"users-service/app/models/ent"
 	"users-service/app/models/ent/activationcode"
 	"users-service/app/models/ent/predicate"
@@ -17,14 +18,13 @@ import (
 
 func WithTransaction(ctx context.Context, client *ent.Client, fn func(tx *ent.Tx) error) error {
 	tx, err := client.BeginTx(ctx, nil)
-
 	if err != nil {
 		return errors.New("failed to create transaction")
 	}
 
 	defer func() {
 		if r := recover(); r != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			panic(r)
 		}
 	}()
@@ -56,15 +56,14 @@ func UpdateCache(ctx context.Context, user *ent.User, r *UsersRepository) error 
 	return nil
 }
 
-func InvalidateCache(ctx context.Context, user *ent.User, r *UsersRepository) error {
+func InvalidateCache(ctx context.Context, user *ent.User, r *UsersRepository) {
 	cacheKeys := utils.GetAllUserKeys(user)
-	var err error
 
 	for _, key := range cacheKeys {
-		err = r.CacheStore.Del(ctx, key)
+		if err := r.CacheStore.Del(ctx, key); err != nil {
+			r.Logger.Warn().Err(err).Str("cache_key", key).Msg("Failed to invalidate cache key")
+		}
 	}
-
-	return err
 }
 
 func withFullUserData(q *ent.UserQuery) *ent.UserQuery {
@@ -151,12 +150,6 @@ func withRoles(q *ent.UserQuery) *ent.UserQuery {
 func getUserPrivate(ctx context.Context, tx *ent.Tx, where ...predicate.User) (*ent.User, error) {
 	q := tx.User.Query()
 	q = withFullUserData(q)
-	q.Where(where...)
-	return q.Only(ctx)
-}
-
-func getUserPublic(ctx context.Context, tx *ent.Tx, where ...predicate.User) (*ent.User, error) {
-	q := tx.User.Query()
 	q.Where(where...)
 	return q.Only(ctx)
 }

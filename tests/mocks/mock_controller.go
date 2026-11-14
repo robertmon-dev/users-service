@@ -2,7 +2,6 @@ package mocks
 
 import (
 	"errors"
-	"users-service/app/models/requests"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
@@ -11,14 +10,6 @@ import (
 
 type MockStandardController struct {
 	mock.Mock
-}
-
-func (m *MockStandardController) InitWebSocketHelper(ctx *gin.Context) (*requests.WebSocketHelper, error) {
-	args := m.Called(ctx)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*requests.WebSocketHelper), args.Error(1)
 }
 
 func (m *MockStandardController) RespondFailure(ctx *gin.Context, statusCode int, errMsg string) {
@@ -49,22 +40,4 @@ func (r *TestRequestWithValidation) Valid() error {
 		return errors.New("name is invalid")
 	}
 	return nil
-}
-
-type MockWebSocketController struct {
-	MockStandardController
-	mock.Mock
-}
-
-func (m *MockWebSocketController) InitWebSocketHelper(ctx *gin.Context) (*requests.WebSocketHelper, error) {
-	args := m.Called(ctx)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*requests.WebSocketHelper), args.Error(1)
-}
-
-func (m *MockWebSocketController) Log() *zerolog.Logger {
-	args := m.Called()
-	return args.Get(0).(*zerolog.Logger)
 }

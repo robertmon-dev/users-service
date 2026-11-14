@@ -10,29 +10,13 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-// RegisterSwaggerRoutes registers Swagger UI endpoints with the provided router.
-// It sets up a rate-limited endpoint to serve Swagger API documentation.
-//
-// Parameters:
-//   - prefix: The base path prefix for Swagger endpoints (e.g., "/swagger")
-//   - router: The Gin RouterGroup to register the routes with
-//   - tracker: RequestTracker instance for rate limiting
-//   - middlewares: Interface for custom middlewares (logging, rate limiting)
-//   - logger: Zerolog logger instance for logging
-//
-// The function creates the following endpoint:
-//   - GET {prefix}/*any - Serves Swagger UI and API documentation.
-//     This single handler will serve all Swagger UI assets (HTML, CSS, JS)
-//     and the generated 'doc.json' file, thanks to the '_ "users-service/app/docs"' import.
-//
-// The endpoint is protected by request rate limiting middleware and logging middleware.
 func RegisterSwaggerRoutes(
 	prefix string,
 	router *gin.RouterGroup,
 	tracker *middlewares.RequestTracker,
 	middlewares middlewares.MiddlewaresInterface,
-	logger zerolog.Logger) {
-
+	logger zerolog.Logger,
+) {
 	logger.Info().Str("prefix", prefix).Msg("Registering Swagger routes")
 
 	swaggerGroup := router.Group(prefix).

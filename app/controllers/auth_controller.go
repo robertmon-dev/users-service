@@ -3,26 +3,23 @@ package controllers
 import (
 	"context"
 	"net/http"
+
 	requests "users-service/app/models/requests"
 	"users-service/app/models/responses"
 	"users-service/app/services"
 	"users-service/app/utils"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog"
 )
 
 type AuthController struct {
 	AuthService  services.AuthServiceInterface
 	UsersService services.UsersServiceInterface
-	Upgrader     websocket.Upgrader
 	Logger       zerolog.Logger
 }
 
 type AuthControllerInterface interface {
-	InitWebSocketHelper(ctx *gin.Context) (*requests.WebSocketHelper, error)
-
 	Register(ctx *gin.Context)
 	RegisterExternally(ctx *gin.Context)
 	Login(ctx *gin.Context)
@@ -36,33 +33,28 @@ type AuthControllerInterface interface {
 	ResendResetCode(ctx *gin.Context)
 	ResendVerificationCode(ctx *gin.Context)
 	ResendSecondFactorCode(ctx *gin.Context)
+	VerifySecondFactorCode(ctx *gin.Context)
 
 	RequestPasswordReset(ctx *gin.Context)
 	CancelPasswordReset(ctx *gin.Context)
 	ConfirmPasswordReset(ctx *gin.Context)
 }
 
-var _ AuthControllerInterface = (*AuthController)(nil)
-var _ StandardController = (*AuthController)(nil)
+var (
+	_ AuthControllerInterface = (*AuthController)(nil)
+	_ StandardController      = (*AuthController)(nil)
+)
 
 func NewAuthController(
 	authService services.AuthServiceInterface,
 	usersService services.UsersServiceInterface,
-	logger zerolog.Logger) *AuthController {
-
+	logger zerolog.Logger,
+) *AuthController {
 	return &AuthController{
 		AuthService:  authService,
 		UsersService: usersService,
-		Upgrader: websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool {
-				return true
-			},
-			ReadBufferSize:  1024,
-			WriteBufferSize: 1024,
-		},
-		Logger: logger,
+		Logger:       logger,
 	}
-
 }
 
 func (c *AuthController) Log() *zerolog.Logger {
@@ -89,25 +81,6 @@ func (c *AuthController) RespondSuccess(ctx *gin.Context, statusCode int, data i
 	})
 }
 
-func (c *AuthController) InitWebSocketHelper(ctx *gin.Context) (*requests.WebSocketHelper, error) {
-	c.Upgrader = websocket.Upgrader{
-		ReadBufferSize:  1024,
-		WriteBufferSize: 1024,
-		CheckOrigin: func(r *http.Request) bool {
-			return true
-		},
-	}
-
-	conn, err := c.Upgrader.Upgrade(ctx.Writer, ctx.Request, nil)
-	if err != nil {
-		c.Logger.Error().Err(err).Msg("Failed to upgrade connection to WebSocket")
-		return nil, err
-	}
-
-	c.Logger.Info().Str("remote_addr", conn.RemoteAddr().String()).Msg("New WebSocket connection established")
-	return &requests.WebSocketHelper{Conn: conn, Logger: c.Logger}, nil
-}
-
 // Register godoc
 // @Summary      Creates new user
 // @Description  Creates a user's account with a request data, returning the user private object.
@@ -120,7 +93,8 @@ func (c *AuthController) InitWebSocketHelper(ctx *gin.Context) (*requests.WebSoc
 // @Failure      422   {object}  responses.ErrorResponse "Unprocessable Entity - Invalid or expired code"
 // @Router       /api/v1/auth/register [post]
 func (c *AuthController) Register(ctx *gin.Context) {
-	handleStandardRequest(ctx, c,
+	handleStandardRequest(
+		ctx, c,
 		func(reqCtx context.Context, req *requests.Register) (*responses.UserPublic, error) {
 			user, err := c.AuthService.Register(reqCtx, req)
 			if err != nil {
@@ -220,16 +194,18 @@ func (c *AuthController) ResendVerificationCode(ctx *gin.Context) {
 
 // Login godoc
 // @Summary      Login a user
-// @Description  Initiates a WebSocket connection to handle user login with real-time progress updates.
+// @Description  Authenticates a user with their credentials, returning the user and a JWT.
 // @Tags         auth
 // @Accept       json
 // @Produce      json
 // @Param        body  body      requests.Login  true  "User login credentials"
-// @Success      101   {string}  string "Switching Protocols"
+// @Success      200   {object}  responses.SuccessResponse{data=responses.UserPrivate}  "OK - Login successful"
 // @Failure      400   {object}  responses.ErrorResponse "Bad Request - Invalid input data"
+// @Failure      422   {object}  responses.ErrorResponse "Unprocessable Entity - Invalid credentials"
 // @Router       /api/v1/auth/login [post]
 func (c *AuthController) Login(ctx *gin.Context) {
-	handleStandardRequest(ctx, c,
+	handleStandardRequest(
+		ctx, c,
 		func(reqCtx context.Context, req *requests.Login) (*responses.UserPrivate, error) {
 			user, token, err := c.AuthService.Login(reqCtx, req)
 			if err != nil {
@@ -263,13 +239,13 @@ func (c *AuthController) ResendSecondFactorCode(ctx *gin.Context) {
 }
 
 // VerifySecondFactorCode godoc
-// @Summary      Resend second factor code
-// @Description  Requests a new second factor code to be sent to the user.
+// @Summary      Verify second factor code
+// @Description  Verifies a user's second factor code, returning the user and a JWT.
 // @Tags         auth
 // @Accept       json
 // @Produce      json
-// @Param        body  body      requests.Code      true  "User's email address"
-// @Success      200   {object}  responses.SuccessResponse{data=responses.UserPrivate}  "OK - Successfully requested a new 2FA code"
+// @Param        body  body      requests.Code      true  "Second factor code"
+// @Success      200   {object}  responses.SuccessResponse{data=responses.UserPrivate}  "OK - Successfully verified 2FA code"
 // @Failure      400   {object}  responses.ErrorResponse "Bad Request - Invalid input data"
 // @Failure      422   {object}  responses.ErrorResponse "Unprocessable Entity - Service failed to process the request"
 // @Router       /api/v1/auth/second-factor/verification/code [post]

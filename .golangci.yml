@@ -1,20 +1,27 @@
+version: "2"
+
 run:
   timeout: 5m
   tests: true
 
 linters:
-  disable-all: true
+  default: none
   enable:
     - errcheck
-    - gosimple
     - govet
     - ineffassign
     - staticcheck
     - unused
+  exclusions:
+    paths:
+      - app/models/ent
+      - tests/mocks
+
+formatters:
+  enable:
     - gofmt
     - goimports
-
-issues:
-  exclude-dirs:
-    - app/models/ent
-    - tests/mocks
+  exclusions:
+    paths:
+      - app/models/ent
+      - tests/mocks

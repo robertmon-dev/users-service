@@ -6,17 +6,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
-	requests "users-service/app/models/requests"
-	"users-service/app/models/responses"
+
 	"users-service/tests/mocks"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -152,91 +148,6 @@ func TestHandleAuthenticatedRequest(t *testing.T) {
 
 			assert.Equal(t, tc.expectedStatusCode, w.Code)
 			mockController.AssertExpectations(t)
-		})
-	}
-}
-
-func TestHandleWebSocketRequest(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	type TestWSRequest struct {
-		Action string `json:"action"`
-	}
-
-	testCases := []struct {
-		name        string
-		setupMocks  func(m *mocks.MockWebSocketController, conn *mocks.MockConn)
-		serviceCall func(reqCtx context.Context, req *TestWSRequest, reporter responses.Reporter) (string, error)
-	}{
-		{
-			setupMocks: func(m *mocks.MockWebSocketController, conn *mocks.MockConn) {
-				wsHelper := &requests.WebSocketHelper{Conn: conn, Logger: zerolog.Nop()}
-				m.On("InitWebSocketHelper", mock.Anything).Return(wsHelper, nil).Once()
-
-				jsonData, _ := json.Marshal(TestWSRequest{Action: "start"})
-				conn.On("ReadMessage").Return(websocket.TextMessage, jsonData, nil).Once()
-
-				conn.On("WriteJSON", mock.MatchedBy(func(msg responses.Message) bool {
-					t.Logf("WriteJSON called with: %+v", msg)
-					return msg.Status == "success" && msg.Message == "success" && msg.Data == "ok" && msg.RequestID == ""
-				})).Return(nil).Once()
-
-				conn.On("Close").Return(nil).Once()
-				m.On("Log").Return(&zerolog.Logger{}).Maybe()
-			},
-			serviceCall: func(reqCtx context.Context, req *TestWSRequest, reporter responses.Reporter) (string, error) {
-				assert.Equal(t, "start", req.Action)
-				reporter.Success("success", "ok")
-				return "ok", nil
-			},
-		},
-		{
-			name: "Failure - Upgrade Fails",
-			setupMocks: func(m *mocks.MockWebSocketController, conn *mocks.MockConn) {
-				m.On("InitWebSocketHelper", mock.Anything).Return(nil, errors.New("upgrade failed")).Once()
-				m.On("Log").Return(&zerolog.Logger{}).Once()
-			},
-			serviceCall: func(reqCtx context.Context, req *TestWSRequest, reporter responses.Reporter) (string, error) {
-				t.Fail()
-				return "", nil
-			},
-		},
-		{
-			name: "Failure - Read Request Fails",
-			setupMocks: func(m *mocks.MockWebSocketController, conn *mocks.MockConn) {
-				wsHelper := &requests.WebSocketHelper{Conn: conn, Logger: zerolog.Nop()}
-				m.On("InitWebSocketHelper", mock.Anything).Return(wsHelper, nil).Once()
-				conn.On("ReadMessage").Return(0, nil, errors.New("read error")).Once()
-				conn.On("WriteJSON", mock.MatchedBy(func(msg responses.Message) bool {
-					return msg.Status == "failure" && msg.Message == "Invalid credentials provided" && msg.Error == "read error"
-				})).Return(nil).Once()
-				conn.On("Close").Return(nil).Once()
-				m.On("Log").Return(&zerolog.Logger{}).Maybe()
-			},
-			serviceCall: func(reqCtx context.Context, req *TestWSRequest, reporter responses.Reporter) (string, error) {
-				t.Fail()
-				return "", nil
-			},
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			mockController := new(mocks.MockWebSocketController)
-			mockConn := new(mocks.MockConn)
-
-			w := httptest.NewRecorder()
-			ctx, _ := gin.CreateTestContext(w)
-			ctx.Request, _ = http.NewRequest(http.MethodGet, "/", nil)
-
-			tc.setupMocks(mockController, mockConn)
-
-			handleWebSocketRequest(ctx, mockController, tc.serviceCall)
-
-			time.Sleep(10 * time.Millisecond)
-
-			mockController.AssertExpectations(t)
-			mockConn.AssertExpectations(t)
 		})
 	}
 }

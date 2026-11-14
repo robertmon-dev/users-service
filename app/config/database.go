@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+
 	"users-service/app/middlewares"
 	"users-service/app/models/ent"
 	_ "users-service/app/models/ent/runtime"
@@ -63,7 +64,9 @@ func NewEntClient(ctx context.Context, logger zerolog.Logger, settings *Settings
 	}
 
 	if err := client.Schema.Create(ctx); err != nil {
-		db.Close()
+		if closeErr := db.Close(); closeErr != nil {
+			logger.Error().Err(closeErr).Msg("Failed to close database connection after schema creation error")
+		}
 		return nil, nil, fmt.Errorf("failed to create database: %w", err)
 	}
 

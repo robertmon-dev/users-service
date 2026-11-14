@@ -5,9 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"sync"
-	requests "users-service/app/models/requests"
-	"users-service/app/models/responses"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
@@ -17,11 +14,6 @@ type StandardController interface {
 	RespondFailure(ctx *gin.Context, statusCode int, errMsg string)
 	RespondSuccess(ctx *gin.Context, statusCode int, data interface{})
 	Log() *zerolog.Logger
-}
-
-type WebSocketController interface {
-	StandardController
-	InitWebSocketHelper(ctx *gin.Context) (*requests.WebSocketHelper, error)
 }
 
 func handleStandardRequest[T any, R any](
@@ -95,59 +87,6 @@ func handleAuthenticatedRequest[T any, R any](
 	}
 
 	c.RespondSuccess(ctx, http.StatusOK, result)
-}
-
-func handleWebSocketRequest[T any, R any](
-	ctx *gin.Context,
-	c WebSocketController,
-	serviceCall func(reqCtx context.Context, request *T, reporter responses.Reporter) (R, error),
-) {
-	ws, err := c.InitWebSocketHelper(ctx)
-	if err != nil {
-		c.Log().Error().Err(err).Msg("Failed to initialize WebSocket")
-		return
-	}
-	defer ws.Conn.Close()
-
-	var req T
-	if err := ws.ReadRequest(&req); err != nil {
-		ws.RespondFailure("Invalid credentials provided", err.Error())
-		c.Log().Warn().Err(err).Msg("Failed to read WebSocket request")
-		return
-	}
-
-	type validatable interface {
-		Valid() error
-	}
-	if v, ok := any(&req).(validatable); ok {
-		if err := v.Valid(); err != nil {
-			ws.RespondFailure("Invalid credentials provided", err.Error())
-			c.Log().Warn().Err(err).Msg("Received invalid request data via WebSocket")
-			return
-		}
-	}
-
-	progressChan := make(chan responses.Message, 10)
-	var wg sync.WaitGroup
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-		ws.ForwardProgress(progressChan)
-	}()
-
-	reporter := responses.NewProgressReporter(progressChan)
-
-	result, err := serviceCall(ctx.Request.Context(), &req, reporter)
-	if err != nil {
-		ws.RespondFailure("Service call failed", err.Error())
-		c.Log().Error().Err(err).Msg("WebSocket process finished with an error")
-	} else {
-		c.Log().Info().Interface("result", result).Msg("WebSocket process completed successfully")
-	}
-
-	close(progressChan)
-	wg.Wait()
 }
 
 func getUserIDFromContext(ctx *gin.Context) (int, error) {

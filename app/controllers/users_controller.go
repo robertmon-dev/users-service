@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+
 	requests "users-service/app/models/requests"
 	"users-service/app/models/responses"
 	"users-service/app/services"
@@ -167,7 +168,8 @@ func (c *UsersController) RemoveAccount(ctx *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Param        Authorization header    string            true  "Bearer token"
-// @Success      200       {object}  responses.SuccessResponse{data=responses.UserPrivate,}  "OK - Account removed successfully"
+// @Param        body  body      requests.EntrepreneurDetails  true  "Entrepreneur details"
+// @Success      200       {object}  responses.SuccessResponse{data=responses.UserPrivate}  "OK - Entrepreneur details updated successfully"
 // @Failure      401       {object}  responses.ErrorResponse "Unauthorized - Invalid or missing token"
 // @Failure      422       {object}  responses.ErrorResponse "Unprocessable Entity - Update failed"
 // @Router       /api/v1/users/details/entrepreneur [put]
@@ -227,7 +229,7 @@ func (c *UsersController) Show(ctx *gin.Context) {
 }
 
 // Me godoc
-// @Summary      Show given user public data
+// @Summary      Show authenticated user's private data
 // @Description  Shows user's private data. Returns UserPrivate object if user is authenticated.
 // @Tags         users
 // @Accept       json
@@ -297,7 +299,7 @@ func (c *UsersController) AddRole(ctx *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Param        Authorization header    string            true  "Bearer token"
-// @Success      200       {object}  responses.SuccessResponse{data=responses.UserPrivate}  "OK - Successfully revoked role from user
+// @Success      200       {object}  responses.SuccessResponse{data=responses.UserPrivate}  "OK - Successfully revoked role from user"
 // @Failure      401       {object}  responses.ErrorResponse "Unauthorized - Invalid or missing token"
 // @Failure      422       {object}  responses.ErrorResponse "Unprocessable Entity - fetch failed"
 // @Router       /api/v1/users/role [patch]

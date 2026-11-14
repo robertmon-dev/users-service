@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+
 	"users-service/app/infrastructure"
 	"users-service/app/models/ent"
 	"users-service/app/models/requests"
@@ -40,8 +41,8 @@ var _ UsersServiceInterface = (*UsersService)(nil)
 func NewUsersService(
 	usersRepository repositories.UsersRepositoryInterface,
 	eventNotifier infrastructure.EventNotifierInterface,
-	logger zerolog.Logger) *UsersService {
-
+	logger zerolog.Logger,
+) *UsersService {
 	return &UsersService{
 		UsersRepository: usersRepository,
 		EventNotifier:   eventNotifier,
@@ -63,14 +64,14 @@ func (s *UsersService) UpdateUser(ctx context.Context, userID int, req *requests
 	if updatedUser.Phone != user.Phone {
 		if err := s.EventNotifier.CreateVerificationEvent(updatedUser.Edges.UserSettings, updatedUser.Phone, user.Edges.VerificationCode); err != nil {
 			s.Logger.Error().Err(err).Int("user_id", user.ID).Msg("Failed to produce verification event")
-			return updatedUser, errors.New("failed to send second factor code")
+			return updatedUser, errors.New("failed to send verification code")
 		}
 	}
 
 	if updatedUser.Mail != user.Mail {
 		if err := s.EventNotifier.CreateRegistrationEvent(updatedUser, user.Edges.ActivationCode); err != nil {
 			s.Logger.Error().Err(err).Int("user_id", user.ID).Msg("Failed to produce activation event")
-			return updatedUser, errors.New("failed to send second factor code")
+			return updatedUser, errors.New("failed to send activation code")
 		}
 	}
 
