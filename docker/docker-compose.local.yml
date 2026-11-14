@@ -1,3 +1,5 @@
+name: users-service-local
+
 x-kafka-env: &kafka-env
   KAFKA_CFG_PROCESS_ROLES: controller,broker
   KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
