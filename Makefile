@@ -80,6 +80,7 @@ generate-db-certs: ## Generate a local CA/server/client cert chain for Postgres 
 		-out docker/certs/client.crt -days 3650 -sha256
 	@chmod 600 docker/certs/server.key docker/certs/client.key docker/certs/ca.key
 	@rm -f docker/certs/server.csr docker/certs/client.csr
+	@docker run --rm -v "$$(pwd)/docker/certs:/certs" alpine chown 70:70 /certs/server.key
 	@echo "=> Certificates written to docker/certs/."
 
 .PHONY: clean
