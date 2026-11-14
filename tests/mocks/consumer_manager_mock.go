@@ -22,5 +22,11 @@ func (m *MockConsumerManager) PingAll() error {
 
 func (m *MockConsumerManager) GetConsumer(topic string) (*handlers.ConsumerWrapper, bool) {
 	args := m.Called(topic)
-	return args.Get(0).(*handlers.ConsumerWrapper), args.Bool(1)
+
+	var r0 *handlers.ConsumerWrapper
+	if args.Get(0) != nil {
+		r0 = args.Get(0).(*handlers.ConsumerWrapper)
+	}
+
+	return r0, args.Bool(1)
 }
